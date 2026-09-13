@@ -48,17 +48,15 @@ The project is intentionally designed so each alliance can deploy and own its ow
 
 ## Deploy
 
-Apply migrations to the production D1 database:
-
-```bash
-npm run db:migrate:remote
-```
-
-Then deploy the Worker:
+Production deployment is intentionally migration-aware. Running:
 
 ```bash
 npm run deploy
 ```
+
+first applies any pending D1 migrations to the remote database and then deploys the Worker.
+
+Cloudflare Builds is configured to use this command for the production branch, so future pushes to `main` will keep the Worker and D1 schema in step.
 
 ## Initial API
 
@@ -76,4 +74,4 @@ wrangler.jsonc   Cloudflare Worker configuration
 
 ## Status
 
-This is the initial platform foundation. Authentication, alliance setup, member management, statistics, VS/DS history, profile self-service and Discord integrations will be layered on top of this base.
+The initial Worker + D1 foundation is deployed. Authentication, alliance setup, member management, statistics, VS/DS history, profile self-service and Discord integrations will be layered on top of this base.
