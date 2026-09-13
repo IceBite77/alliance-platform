@@ -7,381 +7,52 @@ export interface Env {
   AUTH_SECRET: string;
 }
 
-type AllianceRow = {
-  id: number;
-  name: string;
-  tag: string | null;
-  created_at: string;
-  updated_at: string;
-};
+type AllianceRow = { id:number; name:string; tag:string|null; created_at:string; updated_at:string };
+type SettingRow = { key:string; value:string };
+type DiscordTokenResponse = { access_token:string; token_type:string; expires_in:number; refresh_token?:string; scope:string };
+type DiscordUser = { id:string; username:string; global_name?:string|null; avatar?:string|null };
+type AccountRow = { id:number; public_id:string; display_name:string; is_active:number; is_owner:number; approval_status:string };
 
-type SettingRow = {
-  key: string;
-  value: string;
-};
-
-type DiscordTokenResponse = {
-  access_token: string;
-  token_type: string;
-  expires_in: number;
-  refresh_token?: string;
-  scope: string;
-};
-
-type DiscordUser = {
-  id: string;
-  username: string;
-  global_name?: string | null;
-  avatar?: string | null;
-};
-
-type AccountRow = {
-  id: number;
-  public_id: string;
-  display_name: string;
-  is_active: number;
-  is_owner: number;
-  approval_status: string;
-};
-
-const DISCORD_API = "https://discord.com/api/v10";
-const SETUP_COOKIE = "ap_setup_oauth";
-const LOGIN_COOKIE = "ap_login_oauth";
-const SESSION_COOKIE = "ap_session";
-const SESSION_MAX_AGE = 60 * 60 * 24 * 14;
-
-const json = (data: unknown, init: ResponseInit = {}): Response => {
-  const headers = new Headers(init.headers);
-  headers.set("content-type", "application/json; charset=utf-8");
-  return new Response(JSON.stringify(data, null, 2), { ...init, headers });
-};
-
-const html = (body: string, init: ResponseInit = {}): Response => {
-  const headers = new Headers(init.headers);
-  headers.set("content-type", "text/html; charset=utf-8");
-  headers.set("cache-control", "no-store");
-  headers.set("x-frame-options", "DENY");
-  headers.set("referrer-policy", "no-referrer");
-  return new Response(body, { ...init, headers });
-};
-
-const redirect = (location: string, headers?: HeadersInit): Response => {
-  const responseHeaders = new Headers(headers);
-  responseHeaders.set("location", location);
-  responseHeaders.set("cache-control", "no-store");
-  return new Response(null, { status: 302, headers: responseHeaders });
-};
-
-const getSettings = async (env: Env, keys: string[]): Promise<Record<string, string>> => {
-  if (keys.length === 0) return {};
-  const placeholders = keys.map(() => "?").join(", ");
-  const result = await env.DB.prepare(`SELECT key, value FROM settings WHERE key IN (${placeholders})`)
-    .bind(...keys)
-    .all<SettingRow>();
-  return Object.fromEntries((result.results ?? []).map((row) => [row.key, row.value]));
-};
-
-const ownerExists = async (env: Env): Promise<boolean> => {
-  const owner = await env.DB.prepare("SELECT id FROM accounts WHERE is_owner = 1 LIMIT 1").first<{ id: number }>();
-  return Boolean(owner);
-};
-
-const escapeHtml = (value: string): string =>
-  value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
-
-const shellStyles = `:root{color-scheme:dark;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;background:radial-gradient(circle at top,#17243d 0,#0c1220 45%,#090e18 100%);color:#eef3ff;padding:24px}main{width:min(94vw,620px);background:#151d2e;border:1px solid #2b3850;border-radius:20px;padding:30px;box-shadow:0 24px 70px rgba(0,0,0,.35)}h1{margin:0 0 10px;font-size:1.8rem}h2{margin:26px 0 8px;font-size:1.1rem}p{color:#b8c4d9;line-height:1.55}.small{font-size:.9rem;color:#90a0bb}.notice{margin:16px 0 0;padding:12px 14px;border-radius:10px;background:#24191c;color:#ffd5dc}.success{background:#14251d;color:#baf4cf}.card{margin-top:18px;padding:16px;border-radius:14px;background:#0e1626;border:1px solid #2b3850}.row{display:flex;justify-content:space-between;gap:18px;padding:7px 0;border-bottom:1px solid #223047}.row:last-child{border-bottom:0}.muted{color:#90a0bb}.button,button{display:inline-block;width:100%;margin-top:16px;padding:13px 16px;border:0;border-radius:11px;background:#5865f2;color:white;text-decoration:none;text-align:center;font-size:1rem;font-weight:800;cursor:pointer}.button.secondary{background:#26344d}label{display:block;margin:22px 0 8px;font-weight:700}input{width:100%;padding:13px 14px;border-radius:10px;border:1px solid #3a4964;background:#0e1626;color:white;font-size:1rem}`;
-
-const setupPage = (message?: string): string => `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Alliance Platform Setup</title><style>${shellStyles}</style></head><body><main><h1>Create the first owner</h1><p>Enter the one-time setup key stored in Cloudflare. You will then be sent to Discord to verify your identity.</p>${message ? `<div class="notice">${escapeHtml(message)}</div>` : ""}<form method="post" action="/setup/discord/start" autocomplete="off"><label for="setup_key">Setup key</label><input id="setup_key" name="setup_key" type="password" required autocomplete="off"><button type="submit">Verify with Discord</button></form><p class="small">The setup key is never stored in the database or written to application logs.</p></main></body></html>`;
-
-const setupDonePage = (name: string): string => `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Owner Connected</title><style>${shellStyles}</style></head><body><main><h1>Discord owner verified</h1><p><strong>${escapeHtml(name)}</strong> is now the installation owner.</p><div class="notice success">Owner account created and secure session started.</div><a class="button" href="/setup/alliance">Continue to alliance setup</a></main></body></html>`;
-
-const loginPage = (message?: string): string => `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Sign in</title><style>${shellStyles}</style></head><body><main><h1>Alliance Platform</h1><p>Sign in with Discord to continue.</p>${message ? `<div class="notice">${escapeHtml(message)}</div>` : ""}<a class="button" href="/auth/discord">Sign in with Discord</a></main></body></html>`;
-
-const allianceSetupPage = (account: AccountRow, alliance: AllianceRow | null, timezone: string): string => `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Set Up Your Alliance</title><style>${shellStyles}</style></head><body><main><h1>Set Up Your Alliance</h1><p>Signed in securely as <strong>${escapeHtml(account.display_name)}</strong>. Discord login and owner protection are working.</p><div class="notice success">Authentication complete ✓</div><div class="card"><div class="row"><span class="muted">Alliance</span><strong>${escapeHtml(alliance?.name ?? "My Alliance")}</strong></div><div class="row"><span class="muted">Tag</span><strong>${escapeHtml(alliance?.tag ?? "Not set")}</strong></div><div class="row"><span class="muted">Timezone</span><strong>${escapeHtml(timezone)}</strong></div><div class="row"><span class="muted">Owner</span><strong>${escapeHtml(account.display_name)}</strong></div></div><h2>Next stage</h2><p>We'll turn this into the short setup form for alliance name, tag, timezone and Discord server connection. Nothing DUCK-specific will be hard-coded, so the installation remains easy to move or reuse later.</p><a class="button secondary" href="/auth/logout">Sign out</a></main></body></html>`;
-
-const sha256 = async (value: string): Promise<Uint8Array> => new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value)));
-
-const constantTimeEqual = (a: Uint8Array, b: Uint8Array): boolean => {
-  if (a.length !== b.length) return false;
-  let mismatch = 0;
-  for (let i = 0; i < a.length; i += 1) mismatch |= a[i] ^ b[i];
-  return mismatch === 0;
-};
-
-const secureStringEqual = async (a: string, b: string): Promise<boolean> => constantTimeEqual(await sha256(a), await sha256(b));
-
-const bytesToBase64Url = (bytes: Uint8Array): string => {
-  let binary = "";
-  for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary).replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", "");
-};
-
-const randomToken = (bytes = 32): string => {
-  const value = new Uint8Array(bytes);
-  crypto.getRandomValues(value);
-  return bytesToBase64Url(value);
-};
-
-const hashToken = async (token: string): Promise<string> => bytesToBase64Url(await sha256(token));
-
-const signState = async (state: string, secret: string): Promise<string> => {
-  const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
-  const signature = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(state));
-  return bytesToBase64Url(new Uint8Array(signature));
-};
-
-const readCookie = (request: Request, name: string): string | null => {
-  const cookies = request.headers.get("cookie") ?? "";
-  for (const part of cookies.split(";")) {
-    const [rawName, ...rest] = part.trim().split("=");
-    if (rawName === name) return rest.join("=");
-  }
-  return null;
-};
-
-const clearCookie = (name: string): string => `${name}=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0`;
-const oauthCookie = (name: string, value: string): string => `${name}=${value}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=600`;
-const sessionCookie = (token: string): string => `${SESSION_COOKIE}=${token}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=${SESSION_MAX_AGE}`;
-
-const validateState = async (request: Request, cookieName: string, state: string, secret: string): Promise<boolean> => {
-  const cookie = readCookie(request, cookieName);
-  if (!cookie) return false;
-  const separator = cookie.lastIndexOf(".");
-  if (separator <= 0) return false;
-  const cookieState = cookie.slice(0, separator);
-  const cookieSignature = cookie.slice(separator + 1);
-  if (!(await secureStringEqual(cookieState, state))) return false;
-  const expected = await signState(cookieState, secret);
-  return secureStringEqual(cookieSignature, expected);
-};
-
-const discordAuthorizeUrl = (env: Env, state: string): string => {
-  const authorize = new URL("https://discord.com/oauth2/authorize");
-  authorize.searchParams.set("client_id", env.DISCORD_CLIENT_ID);
-  authorize.searchParams.set("response_type", "code");
-  authorize.searchParams.set("redirect_uri", `${env.APP_URL}/auth/discord/callback`);
-  authorize.searchParams.set("scope", "identify");
-  authorize.searchParams.set("state", state);
-  return authorize.toString();
-};
-
-const exchangeDiscordCode = async (code: string, env: Env): Promise<DiscordTokenResponse> => {
-  const body = new URLSearchParams({
-    client_id: env.DISCORD_CLIENT_ID,
-    client_secret: env.DISCORD_CLIENT_SECRET,
-    grant_type: "authorization_code",
-    code,
-    redirect_uri: `${env.APP_URL}/auth/discord/callback`,
-  });
-  const response = await fetch(`${DISCORD_API}/oauth2/token`, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body });
-  if (!response.ok) throw new Error(`Discord token exchange failed with ${response.status}`);
-  return response.json<DiscordTokenResponse>();
-};
-
-const fetchDiscordUser = async (accessToken: string): Promise<DiscordUser> => {
-  const response = await fetch(`${DISCORD_API}/users/@me`, { headers: { authorization: `Bearer ${accessToken}` } });
-  if (!response.ok) throw new Error(`Discord user lookup failed with ${response.status}`);
-  return response.json<DiscordUser>();
-};
-
-const createSession = async (request: Request, env: Env, accountId: number): Promise<string> => {
-  const token = randomToken();
-  const tokenHash = await hashToken(token);
-  const userAgent = request.headers.get("user-agent")?.slice(0, 500) ?? null;
-  await env.DB.prepare("DELETE FROM sessions WHERE expires_at <= CURRENT_TIMESTAMP OR revoked_at IS NOT NULL").run();
-  await env.DB.prepare("INSERT INTO sessions (token_hash, account_id, expires_at, user_agent) VALUES (?, ?, datetime('now', '+14 days'), ?)")
-    .bind(tokenHash, accountId, userAgent)
-    .run();
-  return token;
-};
-
-const currentAccount = async (request: Request, env: Env): Promise<AccountRow | null> => {
-  const token = readCookie(request, SESSION_COOKIE);
-  if (!token) return null;
-  const tokenHash = await hashToken(token);
-  const account = await env.DB.prepare(`
-    SELECT a.id, a.public_id, a.display_name, a.is_active, a.is_owner, a.approval_status
-    FROM sessions s
-    JOIN accounts a ON a.id = s.account_id
-    WHERE s.token_hash = ?
-      AND s.revoked_at IS NULL
-      AND s.expires_at > CURRENT_TIMESTAMP
-      AND a.is_active = 1
-      AND a.approval_status = 'active'
-    LIMIT 1
-  `).bind(tokenHash).first<AccountRow>();
-  if (account) await env.DB.prepare("UPDATE sessions SET last_seen_at = CURRENT_TIMESTAMP WHERE token_hash = ?").bind(tokenHash).run();
-  return account ?? null;
-};
-
-const beginDiscordSetup = async (request: Request, env: Env): Promise<Response> => {
-  if (await ownerExists(env)) return html(setupPage("An owner account already exists. First-owner setup is locked."), { status: 409 });
-  const form = await request.formData();
-  const submittedKey = String(form.get("setup_key") ?? "");
-  if (!submittedKey || !(await secureStringEqual(submittedKey, env.SETUP_KEY))) return html(setupPage("That setup key is not valid."), { status: 403 });
-  const state = randomToken(24);
-  const signature = await signState(state, env.SETUP_KEY);
-  return redirect(discordAuthorizeUrl(env, state), { "set-cookie": oauthCookie(SETUP_COOKIE, `${state}.${signature}`) });
-};
-
-const beginDiscordLogin = async (env: Env): Promise<Response> => {
-  if (!(await ownerExists(env))) return redirect("/setup");
-  const state = randomToken(24);
-  const signature = await signState(state, env.AUTH_SECRET);
-  return redirect(discordAuthorizeUrl(env, state), { "set-cookie": oauthCookie(LOGIN_COOKIE, `${state}.${signature}`) });
-};
-
-const finishDiscordSetup = async (request: Request, env: Env, code: string, state: string): Promise<Response> => {
-  if (await ownerExists(env)) return html(setupPage("An owner account already exists. First-owner setup is locked."), { status: 409, headers: { "set-cookie": clearCookie(SETUP_COOKIE) } });
-  if (!code || !state || !(await validateState(request, SETUP_COOKIE, state, env.SETUP_KEY))) return html(setupPage("Discord verification could not be validated. Please start again."), { status: 400, headers: { "set-cookie": clearCookie(SETUP_COOKIE) } });
-
-  try {
-    const token = await exchangeDiscordCode(code, env);
-    const discordUser = await fetchDiscordUser(token.access_token);
-    const displayName = discordUser.global_name || discordUser.username;
-    const publicId = crypto.randomUUID();
-    const auditId = crypto.randomUUID();
-    const existingIdentity = await env.DB.prepare("SELECT id FROM account_identities WHERE provider = 'discord' AND provider_subject = ? LIMIT 1").bind(discordUser.id).first<{ id: number }>();
-    if (existingIdentity) return html(setupPage("That Discord account is already linked to this installation."), { status: 409, headers: { "set-cookie": clearCookie(SETUP_COOKIE) } });
-
-    const accountResult = await env.DB.prepare("INSERT INTO accounts (public_id, display_name, is_active, is_owner, approval_status, approved_at) VALUES (?, ?, 1, 1, 'active', CURRENT_TIMESTAMP)").bind(publicId, displayName).run();
-    const accountId = Number(accountResult.meta.last_row_id);
-    await env.DB.batch([
-      env.DB.prepare("INSERT INTO account_identities (account_id, provider, provider_subject, provider_username) VALUES (?, 'discord', ?, ?)").bind(accountId, discordUser.id, discordUser.username),
-      env.DB.prepare("INSERT INTO audit_log (public_id, actor_account_id, actor_display_name, action, entity_type, entity_id, source, new_values) VALUES (?, ?, ?, 'owner.created', 'account', ?, 'discord-oauth', ?)").bind(auditId, accountId, displayName, publicId, JSON.stringify({ discordUserId: discordUser.id, owner: true, approvalStatus: "active" })),
-    ]);
-    const sessionToken = await createSession(request, env, accountId);
-    const headers = new Headers();
-    headers.append("set-cookie", clearCookie(SETUP_COOKIE));
-    headers.append("set-cookie", sessionCookie(sessionToken));
-    return html(setupDonePage(displayName), { headers });
-  } catch (error) {
-    console.error("Discord owner bootstrap failed", error);
-    return html(setupPage("Discord verification failed. Please try again."), { status: 502, headers: { "set-cookie": clearCookie(SETUP_COOKIE) } });
-  }
-};
-
-const finishDiscordLogin = async (request: Request, env: Env, code: string, state: string): Promise<Response> => {
-  if (!code || !state || !(await validateState(request, LOGIN_COOKIE, state, env.AUTH_SECRET))) return html(loginPage("Discord sign-in could not be validated. Please try again."), { status: 400, headers: { "set-cookie": clearCookie(LOGIN_COOKIE) } });
-  try {
-    const token = await exchangeDiscordCode(code, env);
-    const discordUser = await fetchDiscordUser(token.access_token);
-    const account = await env.DB.prepare(`
-      SELECT a.id, a.public_id, a.display_name, a.is_active, a.is_owner, a.approval_status
-      FROM account_identities i
-      JOIN accounts a ON a.id = i.account_id
-      WHERE i.provider = 'discord' AND i.provider_subject = ?
-      LIMIT 1
-    `).bind(discordUser.id).first<AccountRow>();
-
-    if (!account) return html(loginPage("That Discord account is not linked to this alliance yet."), { status: 403, headers: { "set-cookie": clearCookie(LOGIN_COOKIE) } });
-    if (!account.is_active || account.approval_status !== "active") return html(loginPage("This account is not currently active."), { status: 403, headers: { "set-cookie": clearCookie(LOGIN_COOKIE) } });
-
-    const displayName = discordUser.global_name || discordUser.username;
-    await env.DB.batch([
-      env.DB.prepare("UPDATE accounts SET display_name = ?, last_login_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = ?").bind(displayName, account.id),
-      env.DB.prepare("UPDATE account_identities SET provider_username = ?, updated_at = CURRENT_TIMESTAMP WHERE provider = 'discord' AND provider_subject = ?").bind(discordUser.username, discordUser.id),
-    ]);
-
-    const sessionToken = await createSession(request, env, account.id);
-    const headers = new Headers();
-    headers.append("set-cookie", clearCookie(LOGIN_COOKIE));
-    headers.append("set-cookie", sessionCookie(sessionToken));
-    return redirect(account.is_owner ? "/setup/alliance" : "/", headers);
-  } catch (error) {
-    console.error("Discord login failed", error);
-    return html(loginPage("Discord sign-in failed. Please try again."), { status: 502, headers: { "set-cookie": clearCookie(LOGIN_COOKIE) } });
-  }
-};
-
-const finishDiscordCallback = async (request: Request, env: Env): Promise<Response> => {
-  const url = new URL(request.url);
-  const code = url.searchParams.get("code") ?? "";
-  const state = url.searchParams.get("state") ?? "";
-  if (readCookie(request, LOGIN_COOKIE)) return finishDiscordLogin(request, env, code, state);
-  return finishDiscordSetup(request, env, code, state);
-};
-
-const logout = async (request: Request, env: Env): Promise<Response> => {
-  const token = readCookie(request, SESSION_COOKIE);
-  if (token) {
-    const tokenHash = await hashToken(token);
-    await env.DB.prepare("UPDATE sessions SET revoked_at = CURRENT_TIMESTAMP WHERE token_hash = ?").bind(tokenHash).run();
-  }
-  return redirect("/login", { "set-cookie": clearCookie(SESSION_COOKIE) });
-};
-
-export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
-    const url = new URL(request.url);
-
-    if (request.method === "GET" && url.pathname === "/") {
-      const account = await currentAccount(request, env);
-      if (!account) return redirect((await ownerExists(env)) ? "/login" : "/setup");
-      if (account.is_owner) return redirect("/setup/alliance");
-      return json({ name: "Alliance Platform", status: "ok", signedInAs: account.display_name });
-    }
-
-    if (request.method === "GET" && url.pathname === "/api/health") return json({ status: "ok", service: "worker", timestamp: new Date().toISOString() });
-
-    if (request.method === "GET" && url.pathname === "/api/health/db") {
-      try {
-        const result = await env.DB.prepare("SELECT 1 AS ok").first<{ ok: number }>();
-        return json({ status: result?.ok === 1 ? "ok" : "error", service: "d1", timestamp: new Date().toISOString() });
-      } catch (error) {
-        console.error("D1 health check failed", error);
-        return json({ status: "error", service: "d1", message: "Database health check failed" }, { status: 500 });
-      }
-    }
-
-    if (request.method === "GET" && url.pathname === "/api/alliance") {
-      try {
-        const alliance = await env.DB.prepare("SELECT id, name, tag, created_at, updated_at FROM alliance WHERE id = 1").first<AllianceRow>();
-        if (!alliance) return json({ error: "Alliance record not found" }, { status: 404 });
-        const settings = await getSettings(env, ["alliance_timezone", "platform_name"]);
-        return json({ alliance: { id: alliance.id, name: alliance.name, tag: alliance.tag, timezone: settings.alliance_timezone ?? "UTC", createdAt: alliance.created_at, updatedAt: alliance.updated_at }, platform: { name: settings.platform_name ?? "Alliance Platform" } });
-      } catch (error) {
-        console.error("Alliance lookup failed", error);
-        return json({ error: "Unable to load alliance" }, { status: 500 });
-      }
-    }
-
-    if (request.method === "GET" && url.pathname === "/api/setup/status") {
-      try {
-        const settings = await getSettings(env, ["setup_complete", "schema_version", "alliance_timezone"]);
-        const owner = await env.DB.prepare("SELECT id FROM accounts WHERE is_owner = 1 AND is_active = 1 LIMIT 1").first<{ id: number }>();
-        const complete = settings.setup_complete === "true" && Boolean(owner);
-        return json({ setupComplete: complete, ownerAccountExists: Boolean(owner), schemaVersion: Number(settings.schema_version ?? "0"), timezone: settings.alliance_timezone ?? "UTC", nextStep: complete ? null : owner ? "configure-alliance" : "create-owner" });
-      } catch (error) {
-        console.error("Setup status lookup failed", error);
-        return json({ error: "Unable to determine setup status" }, { status: 500 });
-      }
-    }
-
-    if (request.method === "GET" && url.pathname === "/setup") {
-      if (await ownerExists(env)) return redirect("/login");
-      return html(setupPage());
-    }
-
-    if (request.method === "POST" && url.pathname === "/setup/discord/start") return beginDiscordSetup(request, env);
-    if (request.method === "GET" && url.pathname === "/login") {
-      const account = await currentAccount(request, env);
-      return account ? redirect(account.is_owner ? "/setup/alliance" : "/") : html(loginPage());
-    }
-    if (request.method === "GET" && url.pathname === "/auth/discord") return beginDiscordLogin(env);
-    if (request.method === "GET" && url.pathname === "/auth/discord/callback") return finishDiscordCallback(request, env);
-    if (request.method === "GET" && url.pathname === "/auth/logout") return logout(request, env);
-
-    if (request.method === "GET" && url.pathname === "/setup/alliance") {
-      const account = await currentAccount(request, env);
-      if (!account) return redirect("/login");
-      if (!account.is_owner) return json({ error: "Owner access required" }, { status: 403 });
-      const alliance = await env.DB.prepare("SELECT id, name, tag, created_at, updated_at FROM alliance WHERE id = 1").first<AllianceRow>();
-      const settings = await getSettings(env, ["alliance_timezone"]);
-      return html(allianceSetupPage(account, alliance ?? null, settings.alliance_timezone ?? "UTC"));
-    }
-
-    if (request.method !== "GET") return json({ error: "Method not allowed" }, { status: 405 });
-    return json({ error: "Not found" }, { status: 404 });
-  },
-} satisfies ExportedHandler<Env>;
+const DISCORD_API="https://discord.com/api/v10";
+const SETUP_COOKIE="ap_setup_oauth", LOGIN_COOKIE="ap_login_oauth", SESSION_COOKIE="ap_session";
+const SESSION_MAX_AGE=60*60*24*14;
+const json=(data:unknown,init:ResponseInit={})=>{const h=new Headers(init.headers);h.set("content-type","application/json; charset=utf-8");return new Response(JSON.stringify(data,null,2),{...init,headers:h})};
+const html=(body:string,init:ResponseInit={})=>{const h=new Headers(init.headers);h.set("content-type","text/html; charset=utf-8");h.set("cache-control","no-store");h.set("x-frame-options","DENY");h.set("referrer-policy","no-referrer");return new Response(body,{...init,headers:h})};
+const redirect=(location:string,headers?:HeadersInit)=>{const h=new Headers(headers);h.set("location",location);h.set("cache-control","no-store");return new Response(null,{status:302,headers:h})};
+const getSettings=async(env:Env,keys:string[])=>{if(!keys.length)return{};const p=keys.map(()=>"?").join(", ");const r=await env.DB.prepare(`SELECT key,value FROM settings WHERE key IN (${p})`).bind(...keys).all<SettingRow>();return Object.fromEntries((r.results??[]).map(x=>[x.key,x.value]))};
+const ownerExists=async(env:Env)=>Boolean(await env.DB.prepare("SELECT id FROM accounts WHERE is_owner=1 LIMIT 1").first());
+const escapeHtml=(v:string)=>v.replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;");
+const shellStyles=`:root{color-scheme:dark;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;background:radial-gradient(circle at top,#17243d 0,#0c1220 45%,#090e18 100%);color:#eef3ff;padding:24px}main{width:min(94vw,660px);background:#151d2e;border:1px solid #2b3850;border-radius:20px;padding:30px;box-shadow:0 24px 70px rgba(0,0,0,.35)}h1{margin:0 0 10px;font-size:1.8rem}h2{margin:26px 0 8px;font-size:1.1rem}p{color:#b8c4d9;line-height:1.55}.small{font-size:.9rem;color:#90a0bb}.notice{margin:16px 0;padding:12px 14px;border-radius:10px;background:#24191c;color:#ffd5dc}.success{background:#14251d;color:#baf4cf}.card{margin-top:18px;padding:18px;border-radius:14px;background:#0e1626;border:1px solid #2b3850}.row{display:flex;justify-content:space-between;gap:18px;padding:7px 0;border-bottom:1px solid #223047}.row:last-child{border-bottom:0}.muted{color:#90a0bb}.button,button{display:inline-block;width:100%;margin-top:16px;padding:13px 16px;border:0;border-radius:11px;background:#5865f2;color:white;text-decoration:none;text-align:center;font-size:1rem;font-weight:800;cursor:pointer}.button.secondary{background:#26344d}label{display:block;margin:18px 0 8px;font-weight:700}input,select{width:100%;padding:13px 14px;border-radius:10px;border:1px solid #3a4964;background:#0e1626;color:white;font-size:1rem}.hint{margin:7px 0 0;font-size:.85rem;color:#8292ae}.actions{display:grid;grid-template-columns:1fr 1fr;gap:12px}.step{font-size:.82rem;text-transform:uppercase;letter-spacing:.08em;color:#8292ae;font-weight:800;margin-bottom:8px}@media(max-width:520px){main{padding:22px}.actions{grid-template-columns:1fr}}`;
+const page=(title:string,body:string)=>`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(title)}</title><style>${shellStyles}</style></head><body><main>${body}</main></body></html>`;
+const setupPage=(m?:string)=>page("Alliance Platform Setup",`<h1>Create the first owner</h1><p>Enter the one-time setup key stored in Cloudflare. You will then be sent to Discord to verify your identity.</p>${m?`<div class="notice">${escapeHtml(m)}</div>`:""}<form method="post" action="/setup/discord/start" autocomplete="off"><label for="setup_key">Setup key</label><input id="setup_key" name="setup_key" type="password" required autocomplete="off"><button>Verify with Discord</button></form><p class="small">The setup key is never stored in the database or written to application logs.</p>`);
+const loginPage=(m?:string)=>page("Sign in",`<h1>Alliance Platform</h1><p>Sign in with Discord to continue.</p>${m?`<div class="notice">${escapeHtml(m)}</div>`:""}<a class="button" href="/auth/discord">Sign in with Discord</a>`);
+const setupDonePage=(n:string)=>page("Owner Connected",`<h1>Discord owner verified</h1><p><strong>${escapeHtml(n)}</strong> is now the installation owner.</p><div class="notice success">Owner account created and secure session started.</div><a class="button" href="/setup/alliance">Continue to alliance setup</a>`);
+const timezoneOptions=(current:string)=>["Europe/London","UTC","Europe/Paris","Europe/Berlin","America/New_York","America/Chicago","America/Denver","America/Los_Angeles","Australia/Sydney"].map(z=>`<option value="${z}"${z===current?" selected":""}>${z}</option>`).join("");
+const allianceSetupPage=(a:AccountRow,alliance:AllianceRow|null,tz:string,m?:string)=>page("Set Up Your Alliance",`<div class="step">Step 2 of 3 · Alliance details</div><h1>Set Up Your Alliance</h1><p>Signed in as <strong>${escapeHtml(a.display_name)}</strong>. These details can be changed later, so if the alliance ever moves or rebrands we won't need to rebuild anything.</p>${m?`<div class="notice">${escapeHtml(m)}</div>`:""}<form method="post" action="/setup/alliance"><div class="card"><label for="name">Alliance name</label><input id="name" name="name" maxlength="80" required value="${escapeHtml(alliance?.name==="My Alliance"?"":alliance?.name??"")}" placeholder="e.g. House of Quack"><p class="hint">The full alliance name shown throughout the platform.</p><label for="tag">Alliance tag</label><input id="tag" name="tag" maxlength="12" required value="${escapeHtml(alliance?.tag??"")}" placeholder="e.g. DUCK"><p class="hint">Your short in-game alliance tag.</p><label for="timezone">Timezone</label><select id="timezone" name="timezone" required>${timezoneOptions(tz)}</select><p class="hint">Used for VS dates, events, away periods and audit times.</p></div><button type="submit">Save & continue</button></form><a class="button secondary" href="/auth/logout">Sign out</a>`);
+const discordNextPage=(a:AccountRow,alliance:AllianceRow,tz:string)=>page("Connect Discord",`<div class="step">Step 3 of 3 · Discord server</div><h1>${escapeHtml(alliance.name)} is ready</h1><div class="notice success">Alliance details saved ✓</div><div class="card"><div class="row"><span class="muted">Alliance</span><strong>${escapeHtml(alliance.name)}</strong></div><div class="row"><span class="muted">Tag</span><strong>${escapeHtml(alliance.tag??"")}</strong></div><div class="row"><span class="muted">Timezone</span><strong>${escapeHtml(tz)}</strong></div><div class="row"><span class="muted">Owner</span><strong>${escapeHtml(a.display_name)}</strong></div></div><h2>Next: connect Discord</h2><p>We'll connect the alliance's Discord server here. This will be separate from your personal Discord login and will later power membership checks, role updates and alliance announcements.</p><p class="small">The Discord server connection is the next piece we're building.</p><a class="button secondary" href="/setup/alliance">Edit alliance details</a>`);
+const sha256=async(v:string)=>new Uint8Array(await crypto.subtle.digest("SHA-256",new TextEncoder().encode(v)));
+const constantTimeEqual=(a:Uint8Array,b:Uint8Array)=>{if(a.length!==b.length)return false;let m=0;for(let i=0;i<a.length;i++)m|=a[i]^b[i];return m===0};
+const secureStringEqual=async(a:string,b:string)=>constantTimeEqual(await sha256(a),await sha256(b));
+const bytesToBase64Url=(b:Uint8Array)=>{let s="";for(const x of b)s+=String.fromCharCode(x);return btoa(s).replaceAll("+","-").replaceAll("/","_").replaceAll("=","")};
+const randomToken=(n=32)=>{const b=new Uint8Array(n);crypto.getRandomValues(b);return bytesToBase64Url(b)};
+const hashToken=async(t:string)=>bytesToBase64Url(await sha256(t));
+const signState=async(state:string,secret:string)=>{const k=await crypto.subtle.importKey("raw",new TextEncoder().encode(secret),{name:"HMAC",hash:"SHA-256"},false,["sign"]);return bytesToBase64Url(new Uint8Array(await crypto.subtle.sign("HMAC",k,new TextEncoder().encode(state))))};
+const readCookie=(r:Request,n:string)=>{for(const p of(r.headers.get("cookie")??"").split(";")){const [x,...rest]=p.trim().split("=");if(x===n)return rest.join("=")}return null};
+const clearCookie=(n:string)=>`${n}=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0`;
+const oauthCookie=(n:string,v:string)=>`${n}=${v}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=600`;
+const sessionCookie=(t:string)=>`${SESSION_COOKIE}=${t}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=${SESSION_MAX_AGE}`;
+const validateState=async(r:Request,n:string,state:string,secret:string)=>{const c=readCookie(r,n);if(!c)return false;const i=c.lastIndexOf(".");if(i<=0)return false;const s=c.slice(0,i),sig=c.slice(i+1);return await secureStringEqual(s,state)&&await secureStringEqual(sig,await signState(s,secret))};
+const discordAuthorizeUrl=(env:Env,state:string)=>{const u=new URL("https://discord.com/oauth2/authorize");u.searchParams.set("client_id",env.DISCORD_CLIENT_ID);u.searchParams.set("response_type","code");u.searchParams.set("redirect_uri",`${env.APP_URL}/auth/discord/callback`);u.searchParams.set("scope","identify");u.searchParams.set("state",state);return u.toString()};
+const exchangeDiscordCode=async(code:string,env:Env)=>{const body=new URLSearchParams({client_id:env.DISCORD_CLIENT_ID,client_secret:env.DISCORD_CLIENT_SECRET,grant_type:"authorization_code",code,redirect_uri:`${env.APP_URL}/auth/discord/callback`});const r=await fetch(`${DISCORD_API}/oauth2/token`,{method:"POST",headers:{"content-type":"application/x-www-form-urlencoded"},body});if(!r.ok)throw new Error(`Discord token exchange failed with ${r.status}`);return r.json<DiscordTokenResponse>()};
+const fetchDiscordUser=async(t:string)=>{const r=await fetch(`${DISCORD_API}/users/@me`,{headers:{authorization:`Bearer ${t}`}});if(!r.ok)throw new Error(`Discord user lookup failed with ${r.status}`);return r.json<DiscordUser>()};
+const createSession=async(r:Request,env:Env,id:number)=>{const t=randomToken(),h=await hashToken(t),ua=r.headers.get("user-agent")?.slice(0,500)??null;await env.DB.prepare("DELETE FROM sessions WHERE expires_at<=CURRENT_TIMESTAMP OR revoked_at IS NOT NULL").run();await env.DB.prepare("INSERT INTO sessions (token_hash,account_id,expires_at,user_agent) VALUES (?,?,datetime('now','+14 days'),?)").bind(h,id,ua).run();return t};
+const currentAccount=async(r:Request,env:Env)=>{const t=readCookie(r,SESSION_COOKIE);if(!t)return null;const h=await hashToken(t);const a=await env.DB.prepare(`SELECT a.id,a.public_id,a.display_name,a.is_active,a.is_owner,a.approval_status FROM sessions s JOIN accounts a ON a.id=s.account_id WHERE s.token_hash=? AND s.revoked_at IS NULL AND s.expires_at>CURRENT_TIMESTAMP AND a.is_active=1 AND a.approval_status='active' LIMIT 1`).bind(h).first<AccountRow>();if(a)await env.DB.prepare("UPDATE sessions SET last_seen_at=CURRENT_TIMESTAMP WHERE token_hash=?").bind(h).run();return a??null};
+const beginDiscordSetup=async(r:Request,env:Env)=>{if(await ownerExists(env))return html(setupPage("An owner account already exists. First-owner setup is locked."),{status:409});const f=await r.formData(),key=String(f.get("setup_key")??"");if(!key||!await secureStringEqual(key,env.SETUP_KEY))return html(setupPage("That setup key is not valid."),{status:403});const s=randomToken(24),sig=await signState(s,env.SETUP_KEY);return redirect(discordAuthorizeUrl(env,s),{"set-cookie":oauthCookie(SETUP_COOKIE,`${s}.${sig}`)})};
+const beginDiscordLogin=async(env:Env)=>{if(!await ownerExists(env))return redirect("/setup");const s=randomToken(24),sig=await signState(s,env.AUTH_SECRET);return redirect(discordAuthorizeUrl(env,s),{"set-cookie":oauthCookie(LOGIN_COOKIE,`${s}.${sig}`)})};
+const finishDiscordSetup=async(r:Request,env:Env,code:string,state:string)=>{if(await ownerExists(env))return html(setupPage("An owner account already exists. First-owner setup is locked."),{status:409,headers:{"set-cookie":clearCookie(SETUP_COOKIE)}});if(!code||!state||!await validateState(r,SETUP_COOKIE,state,env.SETUP_KEY))return html(setupPage("Discord verification could not be validated. Please start again."),{status:400,headers:{"set-cookie":clearCookie(SETUP_COOKIE)}});try{const token=await exchangeDiscordCode(code,env),du=await fetchDiscordUser(token.access_token),dn=du.global_name||du.username,pid=crypto.randomUUID(),aid=crypto.randomUUID();if(await env.DB.prepare("SELECT id FROM account_identities WHERE provider='discord' AND provider_subject=? LIMIT 1").bind(du.id).first())return html(setupPage("That Discord account is already linked to this installation."),{status:409});const ar=await env.DB.prepare("INSERT INTO accounts (public_id,display_name,is_active,is_owner,approval_status,approved_at) VALUES (?,?,1,1,'active',CURRENT_TIMESTAMP)").bind(pid,dn).run(),id=Number(ar.meta.last_row_id);await env.DB.batch([env.DB.prepare("INSERT INTO account_identities (account_id,provider,provider_subject,provider_username) VALUES (?,'discord',?,?)").bind(id,du.id,du.username),env.DB.prepare("INSERT INTO audit_log (public_id,actor_account_id,actor_display_name,action,entity_type,entity_id,source,new_values) VALUES (?,?,?,'owner.created','account',?,'discord-oauth',?)").bind(aid,id,dn,pid,JSON.stringify({discordUserId:du.id,owner:true,approvalStatus:"active"}))]);const st=await createSession(r,env,id),h=new Headers();h.append("set-cookie",clearCookie(SETUP_COOKIE));h.append("set-cookie",sessionCookie(st));return html(setupDonePage(dn),{headers:h})}catch(e){console.error("Discord owner bootstrap failed",e);return html(setupPage("Discord verification failed. Please try again."),{status:502})}};
+const finishDiscordLogin=async(r:Request,env:Env,code:string,state:string)=>{if(!code||!state||!await validateState(r,LOGIN_COOKIE,state,env.AUTH_SECRET))return html(loginPage("Discord sign-in could not be validated. Please try again."),{status:400});try{const token=await exchangeDiscordCode(code,env),du=await fetchDiscordUser(token.access_token),a=await env.DB.prepare(`SELECT a.id,a.public_id,a.display_name,a.is_active,a.is_owner,a.approval_status FROM account_identities i JOIN accounts a ON a.id=i.account_id WHERE i.provider='discord' AND i.provider_subject=? LIMIT 1`).bind(du.id).first<AccountRow>();if(!a)return html(loginPage("That Discord account is not linked to this alliance yet."),{status:403});if(!a.is_active||a.approval_status!=="active")return html(loginPage("This account is not currently active."),{status:403});const dn=du.global_name||du.username;await env.DB.batch([env.DB.prepare("UPDATE accounts SET display_name=?,last_login_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(dn,a.id),env.DB.prepare("UPDATE account_identities SET provider_username=?,updated_at=CURRENT_TIMESTAMP WHERE provider='discord' AND provider_subject=?").bind(du.username,du.id)]);const st=await createSession(r,env,a.id),h=new Headers();h.append("set-cookie",clearCookie(LOGIN_COOKIE));h.append("set-cookie",sessionCookie(st));return redirect(a.is_owner?"/setup/alliance":"/",h)}catch(e){console.error("Discord login failed",e);return html(loginPage("Discord sign-in failed. Please try again."),{status:502})}};
+const finishDiscordCallback=async(r:Request,env:Env)=>{const u=new URL(r.url),code=u.searchParams.get("code")??"",state=u.searchParams.get("state")??"";return readCookie(r,LOGIN_COOKIE)?finishDiscordLogin(r,env,code,state):finishDiscordSetup(r,env,code,state)};
+const logout=async(r:Request,env:Env)=>{const t=readCookie(r,SESSION_COOKIE);if(t)await env.DB.prepare("UPDATE sessions SET revoked_at=CURRENT_TIMESTAMP WHERE token_hash=?").bind(await hashToken(t)).run();return redirect("/login",{"set-cookie":clearCookie(SESSION_COOKIE)})};
+const validTimezone=(z:string)=>{try{new Intl.DateTimeFormat("en-GB",{timeZone:z}).format();return true}catch{return false}};
+const saveAlliance=async(r:Request,env:Env,a:AccountRow)=>{const f=await r.formData(),name=String(f.get("name")??"").trim(),tag=String(f.get("tag")??"").trim().toUpperCase(),tz=String(f.get("timezone")??"").trim();const current=await env.DB.prepare("SELECT id,name,tag,created_at,updated_at FROM alliance WHERE id=1").first<AllianceRow>();if(!name||name.length>80||!tag||tag.length>12||!validTimezone(tz))return html(allianceSetupPage(a,current??null,tz||"Europe/London","Please check the alliance name, tag and timezone."),{status:400});const oldSettings=await getSettings(env,["alliance_timezone"]);await env.DB.batch([env.DB.prepare("UPDATE alliance SET name=?,tag=?,updated_at=CURRENT_TIMESTAMP WHERE id=1").bind(name,tag),env.DB.prepare("INSERT INTO settings (key,value,updated_at) VALUES ('alliance_timezone',?,CURRENT_TIMESTAMP) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=CURRENT_TIMESTAMP").bind(tz),env.DB.prepare("INSERT INTO audit_log (public_id,actor_account_id,actor_display_name,action,entity_type,entity_id,source,old_values,new_values) VALUES (?,?,?,'alliance.settings.updated','alliance','1','setup',?,?)").bind(crypto.randomUUID(),a.id,a.display_name,JSON.stringify({name:current?.name??null,tag:current?.tag??null,timezone:oldSettings.alliance_timezone??"UTC"}),JSON.stringify({name,tag,timezone:tz}))]);return redirect("/setup/discord")};
+export default{async fetch(r:Request,env:Env){const u=new URL(r.url);if(r.method==="GET"&&u.pathname==="/"){const a=await currentAccount(r,env);if(!a)return redirect(await ownerExists(env)?"/login":"/setup");return redirect(a.is_owner?"/setup/alliance":"/")}if(r.method==="GET"&&u.pathname==="/api/health")return json({status:"ok",service:"worker",timestamp:new Date().toISOString()});if(r.method==="GET"&&u.pathname==="/api/health/db"){try{const x=await env.DB.prepare("SELECT 1 AS ok").first<{ok:number}>();return json({status:x?.ok===1?"ok":"error",service:"d1",timestamp:new Date().toISOString()})}catch(e){console.error(e);return json({status:"error"},{status:500})}}if(r.method==="GET"&&u.pathname==="/api/alliance"){const al=await env.DB.prepare("SELECT id,name,tag,created_at,updated_at FROM alliance WHERE id=1").first<AllianceRow>();const s=await getSettings(env,["alliance_timezone","platform_name"]);return json({alliance:al?{...al,timezone:s.alliance_timezone??"UTC"}:null,platform:{name:s.platform_name??"Alliance Platform"}})}if(r.method==="GET"&&u.pathname==="/api/setup/status"){const s=await getSettings(env,["setup_complete","schema_version","alliance_timezone"]),o=await env.DB.prepare("SELECT id FROM accounts WHERE is_owner=1 AND is_active=1 LIMIT 1").first();const complete=s.setup_complete==="true"&&Boolean(o);return json({setupComplete:complete,ownerAccountExists:Boolean(o),schemaVersion:Number(s.schema_version??"0"),timezone:s.alliance_timezone??"UTC",nextStep:complete?null:o?"configure-alliance":"create-owner"})}if(r.method==="GET"&&u.pathname==="/setup")return await ownerExists(env)?redirect("/login"):html(setupPage());if(r.method==="POST"&&u.pathname==="/setup/discord/start")return beginDiscordSetup(r,env);if(r.method==="GET"&&u.pathname==="/login"){const a=await currentAccount(r,env);return a?redirect(a.is_owner?"/setup/alliance":"/"):html(loginPage())}if(r.method==="GET"&&u.pathname==="/auth/discord")return beginDiscordLogin(env);if(r.method==="GET"&&u.pathname==="/auth/discord/callback")return finishDiscordCallback(r,env);if(r.method==="GET"&&u.pathname==="/auth/logout")return logout(r,env);if((r.method==="GET"||r.method==="POST")&&u.pathname==="/setup/alliance"){const a=await currentAccount(r,env);if(!a)return redirect("/login");if(!a.is_owner)return json({error:"Owner access required"},{status:403});if(r.method==="POST")return saveAlliance(r,env,a);const al=await env.DB.prepare("SELECT id,name,tag,created_at,updated_at FROM alliance WHERE id=1").first<AllianceRow>(),s=await getSettings(env,["alliance_timezone"]);return html(allianceSetupPage(a,al??null,s.alliance_timezone??"Europe/London"))}if(r.method==="GET"&&u.pathname==="/setup/discord"){const a=await currentAccount(r,env);if(!a)return redirect("/login");if(!a.is_owner)return json({error:"Owner access required"},{status:403});const al=await env.DB.prepare("SELECT id,name,tag,created_at,updated_at FROM alliance WHERE id=1").first<AllianceRow>(),s=await getSettings(env,["alliance_timezone"]);if(!al)return redirect("/setup/alliance");return html(discordNextPage(a,al,s.alliance_timezone??"UTC"))}if(r.method!=="GET")return json({error:"Method not allowed"},{status:405});return json({error:"Not found"},{status:404})}} satisfies ExportedHandler<Env>;
