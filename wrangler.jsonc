@@ -5,6 +5,10 @@
   "compatibility_date": "2026-09-13",
   "workers_dev": false,
   "preview_urls": false,
+  "vars": {
+    "APP_URL": "https://app.allianceplatform.games",
+    "DISCORD_CLIENT_ID": "1548705012215976026"
+  },
   "d1_databases": [
     {
       "binding": "DB",
