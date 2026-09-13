@@ -1,0 +1,17 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "alliance-platform",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-13",
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "alliance-platform",
+      "database_id": "REPLACE_WITH_YOUR_D1_DATABASE_ID",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "observability": {
+    "enabled": true
+  }
+}
