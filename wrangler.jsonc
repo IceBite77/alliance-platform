@@ -7,7 +7,7 @@
     {
       "binding": "DB",
       "database_name": "alliance-platform",
-      "database_id": "REPLACE_WITH_YOUR_D1_DATABASE_ID",
+      "database_id": "737bf7e0-71d8-403a-a002-bcbd84bb4714",
       "migrations_dir": "migrations"
     }
   ],
