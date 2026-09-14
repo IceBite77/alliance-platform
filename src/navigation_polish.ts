@@ -30,7 +30,7 @@ export default {
     const who=await identity(request,env);
     if(who&&path!=="/"&&html.includes('<div class="adminbrand">')&&html.includes('<div class="crumb">')){
       const showNames=who.show_rank_names!=="0";
-      const rankTitle=showNames&&who.rank_name&&who.rank_name!==`R${who.rank}`?` ${esc(who.rank_name)}`:"";
+      const rankTitle=showNames&&who.rank_name&&who.rank_name!==`R${who.rank}`?` · ${esc(who.rank_name)}`:"";
       const signedIn=`<div class="adminidentitynav" style="margin-left:auto;text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:5px"><div class="signedinidentity" style="color:#90a0bb;font-size:.76rem;font-weight:700;white-space:nowrap">${esc(who.display_name)} · R${who.rank}${rankTitle}</div>`;
       html=html.replace('<div class="crumb">',`${signedIn}<div class="crumb" style="margin-left:0">`);
       html=html.replace(/(<div class="crumb" style="margin-left:0">[\s\S]*?<\/div>)/,`$1</div>`);
