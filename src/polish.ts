@@ -45,7 +45,10 @@ const polishHtml=async(res:Response,path:string,e:Env)=>{
     body=body.replace(/<form method="post" action="\/settings\/alliance\/branding" onsubmit="return confirm\('Remove this image\?'\);"><input type="hidden" name="slot" value="remove"><input type="hidden" name="asset_slot" value="favicon"><button class="removeasset" type="submit">Remove<\/button><\/form>/,`<form method="post" action="/settings/alliance/branding/icons/remove" onsubmit="return confirm('Remove this icon set?');"><button class="removeasset" type="submit">Remove</button></form>`);
     body=body.replace("</body>",`${iconScript}</body>`);
   }
-  if(path==="/")body=body.replace(/<div class="dashuser"><span class="small">Signed in as<\/span><strong>(.*?)<\/strong><\/div>/,`<div class="dashuser"><span class="small">Welcome</span><strong>$1</strong></div>`);
+  if(path==="/"){
+    body=body.replace(/<div class="dashcopy"><div class="step">Leadership Console<\/div><h1>(.*?)<\/h1><div class="identityline">(.*?)<\/div><\/div>/,`<div class="dashcopy"><div class="step">Administration</div><h1>Leadership Console</h1><div class="identityline">$1 · $2</div></div>`);
+    body=body.replace(/<div class="dashuser"><span class="small">Signed in as<\/span><strong>(.*?)<\/strong><\/div>/,`<div class="dashuser"><span class="small">Welcome</span><strong>$1</strong></div>`);
+  }
   const iconRow=await e.DB.prepare("SELECT value FROM settings WHERE key='brand_favicon'").first<{value:string}>().catch(()=>null);
   if(iconRow?.value&&body.includes("</head>"))body=body.replace("</head>",`<link rel="icon" type="image/png" sizes="16x16" href="/assets/branding/icons/favicon-16.png"><link rel="icon" type="image/png" sizes="32x32" href="/assets/branding/icons/favicon-32.png"><link rel="icon" type="image/png" sizes="48x48" href="/assets/branding/icons/favicon-48.png"><link rel="apple-touch-icon" sizes="180x180" href="/assets/branding/icons/apple-touch-icon.png"><link rel="manifest" href="/site.webmanifest"></head>`);
   const h=new Headers(res.headers);h.delete("content-length");return new Response(body,{status:res.status,statusText:res.statusText,headers:h});
