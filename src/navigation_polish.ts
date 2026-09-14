@@ -10,6 +10,7 @@ export default {
     if(!res.headers.get("content-type")?.includes("text/html")) return res;
     let html=await res.text();
     html=html.replaceAll(">← Dashboard<",">← Leadership Console<");
+    html=html.replaceAll(">Leadership Console<",">← Leadership Console<");
     html=html.replaceAll(">Back to dashboard<",">Back to Leadership Console<");
     return new Response(html,{status:res.status,statusText:res.statusText,headers:res.headers});
   }
