@@ -17,6 +17,12 @@
       "migrations_dir": "migrations"
     }
   ],
+  "r2_buckets": [
+    {
+      "binding": "ASSETS",
+      "bucket_name": "alliance-platform-assets"
+    }
+  ],
   "observability": {
     "enabled": true
   }
