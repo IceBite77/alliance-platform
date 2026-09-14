@@ -1,4 +1,4 @@
-import app from "./player_management";
+import app from "./player_management_fixed";
 
 interface Env {
   DB: D1Database;
