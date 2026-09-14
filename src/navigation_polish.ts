@@ -29,8 +29,8 @@ export default {
     }
     const who=await identity(request,env);
     if(who&&path!=="/"&&html.includes('<div class="adminbrand">')&&html.includes('<div class="crumb">')){
-      const welcome=`<div class="signedinwelcome" style="margin-left:auto;text-align:right;line-height:1.2"><span style="display:block;color:#8292ae;font-size:.68rem;text-transform:uppercase;letter-spacing:.06em;font-weight:800">Welcome</span><strong style="display:block;font-size:.86rem;margin-top:3px">${esc(who.display_name)} · R${who.rank}</strong></div>`;
-      html=html.replace('<div class="crumb">',`${welcome}<div class="crumb" style="margin-left:16px">`);
+      const signedIn=`<div class="signedinidentity" style="margin-left:auto;color:#90a0bb;font-size:.78rem;font-weight:700;white-space:nowrap">${esc(who.display_name)} · R${who.rank}</div>`;
+      html=html.replace('<div class="crumb">',`${signedIn}<div class="crumb" style="margin-left:18px">`);
     }
     return new Response(html,{status:res.status,statusText:res.statusText,headers:res.headers});
   }
