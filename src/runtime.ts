@@ -1,4 +1,4 @@
-import app from "./player_management_fixed";
+import app from "./player_save_fix";
 
 interface Env {
   DB: D1Database;
