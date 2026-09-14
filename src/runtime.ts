@@ -1,4 +1,4 @@
-import app from "./player_save_fix";
+import app from "./navigation_polish";
 
 interface Env {
   DB: D1Database;
