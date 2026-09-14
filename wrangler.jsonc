@@ -1,7 +1,7 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "alliance-platform",
-  "main": "src/polish.ts",
+  "main": "src/ranks.ts",
   "compatibility_date": "2026-09-13",
   "workers_dev": false,
   "preview_urls": false,
