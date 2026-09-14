@@ -31,7 +31,9 @@ const decoratePlayerList=async(e:Env,html:string,u:URL)=>{
     const id=Number(m[1]),linked=links.get(id),rawName=(row.match(/<div class="pname">([^<]*)<\/div>/)?.[1]||"").trim(),name=rawName.toLowerCase();
     const access=linked?(linked.is_active===1?"active":"disabled"):"none";
     let out=row.replace('<a class="playerrow"',`<a class="playerrow" data-player-name="${esc(name)}" data-discord="${linked?"linked":"unlinked"}" data-login="${access}"`);
-    if(linked){const username=esc(linked.provider_username||linked.display_name);const badge=`<span style="display:inline-flex;align-items:center;margin-left:8px;padding:2px 7px;border:1px solid #405274;border-radius:999px;color:${linked.is_active?"#9ae6b4":"#d29aa5"};font-size:.68rem;font-weight:800;vertical-align:middle">Discord · ${username}${linked.is_active?"":" · login disabled"}</span>`;out=out.replace(/(<div class="pname">[\s\S]*?)(<\/div>)/,`$1${badge}$2`)}
+    const discordBadge=linked?`<span style="display:inline-flex;align-items:center;margin-left:8px;padding:2px 7px;border:1px solid #405274;border-radius:999px;color:#aebddd;font-size:.68rem;font-weight:800;vertical-align:middle">Discord · ${esc(linked.provider_username||linked.display_name)}</span>`:"";
+    const loginBadge=`<span style="display:inline-flex;align-items:center;margin-left:8px;padding:2px 7px;border:1px solid #405274;border-radius:999px;color:${linked?(linked.is_active?"#9ae6b4":"#d29aa5"):"#90a0bb"};font-size:.68rem;font-weight:800;vertical-align:middle">Login · ${linked?(linked.is_active?"Active":"Disabled"):"No account"}</span>`;
+    out=out.replace(/(<div class="pname">[\s\S]*?)(<\/div>)/,`$1${discordBadge}${loginBadge}$2`);
     const okName=!q||name.includes(q),okDiscord=discord==="all"||discord===(linked?"linked":"unlinked"),okLogin=login==="all"||login===access;
     if(!(okName&&okDiscord&&okLogin))return "";
     shown++;return out;
