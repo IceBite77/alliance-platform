@@ -77,6 +77,7 @@ export default {
     if (!html.includes("</head>")) return response;
     const alert=await getAlertColour(env);
     if(request.method==="GET" && url.pathname==="/settings/alliance/branding") html=polishBrandingPage(html,alert);
+    html=html.replaceAll('href="/security/access"','href="/leadership/security"');
     const headers = new Headers(response.headers);
     headers.delete("content-length");
     return new Response(html.replace("</head>", `${brandingCss(alert)}</head>`), {
