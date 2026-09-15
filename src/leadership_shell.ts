@@ -1,0 +1,25 @@
+export interface LeadershipShellEnv { DB:D1Database }
+export type LeadershipIdentity={display_name:string;rank:number};
+
+const SESSION_COOKIE="ap_session";
+export const leadershipEsc=(v:string)=>v.replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;");
+const cookie=(r:Request,n:string)=>{for(const p of(r.headers.get("cookie")??"").split(";")){const [x,...z]=p.trim().split("=");if(x===n)return z.join("=")}return null};
+const b64=(b:Uint8Array)=>{let s="";for(const x of b)s+=String.fromCharCode(x);return btoa(s).replaceAll("+","-").replaceAll("/","_").replaceAll("=","")};
+const hash=async(v:string)=>b64(new Uint8Array(await crypto.subtle.digest("SHA-256",new TextEncoder().encode(v))));
+
+export const leadershipIdentity=async(r:Request,e:LeadershipShellEnv)=>{const t=cookie(r,SESSION_COOKIE);if(!t)return null;return e.DB.prepare(`SELECT p.display_name,p.rank FROM sessions s JOIN accounts a ON a.id=s.account_id JOIN players p ON p.id=a.player_id WHERE s.token_hash=? AND s.revoked_at IS NULL AND s.expires_at>CURRENT_TIMESTAMP AND a.is_active=1 AND a.approval_status='active' LIMIT 1`).bind(await hash(t)).first<LeadershipIdentity>()};
+
+export const leadershipHeader=async(r:Request,e:LeadershipShellEnv)=>{
+ const alliance=await e.DB.prepare("SELECT name,tag,server_number FROM alliance WHERE id=1").first<{name:string;tag:string|null;server_number:number|null}>();
+ const rows=await e.DB.prepare("SELECT key,value FROM settings WHERE key IN ('brand_main_logo','theme_accent','theme_icon')").all<{key:string;value:string}>();
+ const settings=Object.fromEntries((rows.results??[]).map(x=>[x.key,x.value]));
+ const who=await leadershipIdentity(r,e).catch(()=>null);
+ const accent=/^#[0-9a-fA-F]{6}$/.test(settings.theme_accent||"")?settings.theme_accent:"#5865f2";
+ const icon=/^#[0-9a-fA-F]{6}$/.test(settings.theme_icon||"")?settings.theme_icon:"#aebddd";
+ const mark=settings.brand_main_logo?`<img src="/assets/${encodeURIComponent(settings.brand_main_logo)}" alt="">`:leadershipEsc(alliance?.tag?`[${alliance.tag}]`:"[DuCK]");
+ const identity=`${alliance?.tag?`[${leadershipEsc(alliance.tag)}] · `:""}${alliance?.server_number?`Server #${alliance.server_number}`:"Server not set"}`;
+ const right=who?`<div class="adminidentitynav"><div class="signedinidentity">${leadershipEsc(who.display_name)} · R${who.rank}</div><div class="crumb"><a href="/leadership">← Leadership Console</a></div></div>`:`<div class="adminidentitynav"><div class="crumb"><a href="/leadership">← Leadership Console</a></div></div>`;
+ return {html:`<div class="adminbrand"><div class="brandmark">${mark}</div><div class="brandcopy"><strong>${leadershipEsc(alliance?.name||"Alliance")}</strong><span>${identity}</span></div>${right}</div>`,accent,icon};
+};
+
+export const leadershipShellCss=(accent:string,icon:string)=>`<style id="leadership-shared-shell">:root{--accent:${accent};--icon:${icon}}body{padding:24px!important}main{width:min(94vw,1120px)!important;margin:28px auto!important;background:#151d2e!important;border:1px solid #2b3850!important;border-radius:20px!important;padding:30px!important;box-shadow:0 24px 70px rgba(0,0,0,.35)!important}.adminbrand{display:flex!important;align-items:center!important;gap:19px!important;margin-bottom:25px!important;padding:0 0 24px!important;border-bottom:1px solid #2b3850!important}.brandmark{width:94px!important;height:94px!important;flex:0 0 94px!important;border-radius:20px!important;background:var(--accent)!important;display:flex!important;align-items:center!important;justify-content:center!important;font-weight:900!important;padding:0!important;overflow:hidden!important}.brandmark:has(img){background:transparent!important;border-radius:0!important}.brandmark img{display:block!important;width:100%!important;height:100%!important;object-fit:contain!important}.brandcopy strong,.brandcopy span{display:block!important}.brandcopy strong{font-size:1.42rem!important;line-height:1.2!important}.brandcopy span{color:#90a0bb!important;font-size:1rem!important;margin-top:7px!important;font-weight:650!important}.adminidentitynav{margin-left:auto!important;text-align:right!important;display:flex!important;flex-direction:column!important;align-items:flex-end!important;gap:12px!important}.signedinidentity{color:#90a0bb!important;font-size:.76rem!important;font-weight:700!important;white-space:nowrap!important}.crumb{margin:0!important}.crumb a{color:var(--icon)!important;text-decoration:none!important;font-weight:700!important;font-size:.82rem!important}@media(max-width:650px){body{padding:12px!important}main{padding:20px!important;margin:8px auto!important}.brandmark{width:74px!important;height:74px!important;flex-basis:74px!important}.brandcopy strong{font-size:1.22rem!important}.brandcopy span{font-size:.88rem!important;margin-top:4px!important}.adminidentitynav{display:none!important}}</style>`;
