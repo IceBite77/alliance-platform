@@ -1,4 +1,4 @@
-import app from "./security_dashboard";
+import app from "./runtime";
 
 interface Env { DB:D1Database; }
 
