@@ -6,8 +6,13 @@ interface Env { DB:D1Database; ASSETS:R2Bucket; APP_URL:string; DISCORD_CLIENT_I
 export default {
   async fetch(request:Request,env:Env,ctx:ExecutionContext):Promise<Response>{
     const url=new URL(request.url);
-    if(request.method==="GET" && url.pathname==="/security/access"){
-      return (securityDashboard as any).fetch(request,env,ctx);
+    if(request.method==="GET" && url.pathname==="/leadership/security"){
+      const rewritten=new URL(request.url);
+      rewritten.pathname="/security/access";
+      return (securityDashboard as any).fetch(new Request(rewritten.toString(),request),env,ctx);
+    }
+    if(request.method==="GET" && (url.pathname==="/security/access" || url.pathname==="/security-access")){
+      return Response.redirect(new URL("/leadership/security",request.url),302);
     }
     return (runtime as any).fetch(request,env,ctx);
   }
