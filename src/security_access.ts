@@ -3,7 +3,10 @@ import app from "./player_account_link";
 interface Env { DB:D1Database; ASSETS:R2Bucket; APP_URL:string; DISCORD_CLIENT_ID:string; DISCORD_CLIENT_SECRET:string; DISCORD_BOT_TOKEN:string; SETUP_KEY:string; AUTH_SECRET:string; }
 type Actor={id:number;display_name:string;is_owner:number};
 type SessionAccount={id:number;display_name:string;is_owner:number;is_active:number;approval_status:string};
+type PendingAccount={id:number;display_name:string;provider_username:string|null};
+type AvailablePlayer={id:number;display_name:string;rank:number};
 const SESSION_COOKIE="ap_session";
+const esc=(v:string)=>v.replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;");
 const cookie=(r:Request,n:string)=>{for(const p of(r.headers.get("cookie")??"").split(";")){const [x,...z]=p.trim().split("=");if(x===n)return z.join("=")}return null};
 const b64=(b:Uint8Array)=>{let s="";for(const x of b)s+=String.fromCharCode(x);return btoa(s).replaceAll("+","-").replaceAll("/","_").replaceAll("=","")};
 const hash=async(v:string)=>b64(new Uint8Array(await crypto.subtle.digest("SHA-256",new TextEncoder().encode(v))));
@@ -12,13 +15,25 @@ const actor=async(r:Request,e:Env)=>{const a=await sessionAccount(r,e);return a&
 const safePost=(r:Request,e:Env)=>{const origin=r.headers.get("origin"),site=r.headers.get("sec-fetch-site");if(site&&site!=="same-origin"&&site!=="same-site"&&site!=="none")return false;if(!origin||origin==="null")return true;try{const o=new URL(origin).hostname,h=new URL(r.url).hostname,a=new URL(e.APP_URL).hostname;return o===h||o===a}catch{return false}};
 const redirect=(u:string,r:Request)=>Response.redirect(new URL(u,r.url),302);
 const audit=(e:Env,a:Actor,action:string,id:number,oldValues:unknown,newValues:unknown)=>e.DB.prepare("INSERT INTO audit_log (public_id,actor_account_id,actor_display_name,action,entity_type,entity_id,source,old_values,new_values) VALUES (?,?,?,?,?,?,?,?,?)").bind(crypto.randomUUID(),a.id,a.display_name,action,"account",String(id),"web",JSON.stringify(oldValues),JSON.stringify(newValues)).run();
+const withHtml=(res:Response,html:string)=>{const headers=new Headers(res.headers);headers.delete("content-length");return new Response(html,{status:res.status,statusText:res.statusText,headers})};
+const waitingPanel=async(request:Request,env:Env,res:Response)=>{
+  if(request.method!=="GET"||new URL(request.url).pathname!=="/players"||res.status!==200||!res.headers.get("content-type")?.includes("text/html"))return res;
+  const a=await actor(request,env).catch(()=>null);if(!a?.is_owner)return res;
+  try{
+    const pending=(await env.DB.prepare(`SELECT a.id,a.display_name,i.provider_username FROM accounts a LEFT JOIN account_identities i ON i.account_id=a.id AND i.provider='discord' WHERE a.approval_status='pending' AND a.is_owner=0 ORDER BY a.id`).all<PendingAccount>()).results??[];
+    if(!pending.length)return res;
+    const available=(await env.DB.prepare(`SELECT p.id,p.display_name,p.rank FROM players p WHERE p.is_active=1 AND NOT EXISTS (SELECT 1 FROM accounts a WHERE a.player_id=p.id) ORDER BY p.display_name COLLATE NOCASE`).all<AvailablePlayer>()).results??[];
+    const options=available.map(p=>`<option value="${p.id}">${esc(p.display_name)} · R${p.rank}</option>`).join("");
+    const rows=pending.map(p=>`<div class="waitingrow"><div class="waitingwho"><strong>${esc(p.display_name)}</strong><span>Discord · ${esc(p.provider_username||p.display_name)}</span></div><form method="post" action="/security/access/${p.id}/approve"><select name="player_id" required><option value="">Choose player…</option>${options}</select><button type="submit"${available.length?"":" disabled"}>Approve</button></form><form method="post" action="/security/access/${p.id}/reject" onsubmit="return confirm('Reject this access request?')"><button class="secondary" type="submit">Reject</button></form></div>`).join("");
+    const panel=`<section class="waitingaccess"><div class="waitinghead"><div><div class="step">Access requests</div><h2>Waiting for access</h2><p>Match each Discord request to an active player before approving access.</p></div><span class="waitingcount">${pending.length}</span></div>${rows}${available.length?"":'<div class="notice error">There are no unlinked active players available to approve.</div>'}</section><style>.waitingaccess{margin:20px 0 22px;padding:18px;border:1px solid #405274;border-radius:14px;background:#10192a}.waitinghead{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin-bottom:12px}.waitinghead h2{margin:2px 0 4px}.waitinghead p{margin:0;color:#90a0bb;font-size:.86rem}.waitingcount{min-width:30px;height:30px;padding:0 9px;border-radius:999px;background:#26344d;display:flex;align-items:center;justify-content:center;font-weight:900}.waitingrow{display:grid;grid-template-columns:minmax(170px,1fr) minmax(320px,1.6fr) auto;gap:10px;align-items:center;padding:12px 0;border-top:1px solid #263650}.waitingwho strong,.waitingwho span{display:block}.waitingwho span{margin-top:3px;color:#8292ae;font-size:.76rem}.waitingrow form{display:flex;gap:8px;align-items:center;margin:0}.waitingrow select{margin:0;min-width:0}.waitingrow button{width:auto;margin:0;white-space:nowrap}.waitingrow button.secondary{background:#26344d}@media(max-width:760px){.waitingrow{grid-template-columns:1fr}.waitingrow form{width:100%}.waitingrow select{flex:1}.waitingrow button{min-height:44px}}</style>`;
+    let html=await res.text();const marker='<div class="toolbar">';html=html.includes(marker)?html.replace(marker,`${panel}${marker}`):html.replace('<div class="list">',`${panel}<div class="list">`);return withHtml(res,html)
+  }catch{return res}
+};
 
 export default {async fetch(request:Request,env:Env):Promise<Response>{
   const u=new URL(request.url);
-  // Normal application pages must never depend on the experimental block layer.
-  // Keep the established downstream auth/player stack in charge of them.
-  if(!u.pathname.startsWith("/security/access/")) return (app as any).fetch(request,env);
-
+  if(request.method==="GET"&&u.pathname==="/players")return waitingPanel(request,env,await (app as any).fetch(request,env));
+  if(!u.pathname.startsWith("/security/access/"))return (app as any).fetch(request,env);
   const decision=u.pathname.match(/^\/security\/access\/(\d+)\/(approve|reject)$/);
   if(decision&&request.method==="POST"){
     const a=await actor(request,env);if(!a?.is_owner||!safePost(request,env))return new Response("Forbidden",{status:403});
