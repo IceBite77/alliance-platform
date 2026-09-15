@@ -1,24 +1,88 @@
 import app from "./runtime";
 
-const TRANSPARENT_BRANDING_CSS = `<style id="ap-transparent-branding">
+interface Env { DB:D1Database; }
+
+const DEFAULT_ALERT = "#f59e0b";
+const validHex = (v:string) => /^#[0-9a-fA-F]{6}$/.test(v);
+
+const getAlertColour = async (env:Env) => {
+  const row = await env.DB.prepare("SELECT value FROM settings WHERE key='theme_player_alert' LIMIT 1").first<{value:string}>().catch(()=>null);
+  return validHex(row?.value||"") ? row!.value : DEFAULT_ALERT;
+};
+
+const saveAlertColour = async (env:Env,value:string) => {
+  await env.DB.prepare("INSERT INTO settings (key,value,updated_at) VALUES ('theme_player_alert',?,CURRENT_TIMESTAMP) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=CURRENT_TIMESTAMP").bind(value).run();
+};
+
+const brandingCss = (alert:string) => `<style id="ap-branding-polish">
+:root{--ap-player-alert:${alert}}
 .brandmark.has-image{background:transparent!important;background-image:none!important;box-shadow:none!important}
 .loginlogo:has(img){background:transparent!important;border-color:transparent!important}
 .brandpreview:has(img){background:transparent!important}
 .brandvisual.crest:has(img),.pendingbrand.crest:has(img){background:transparent!important;background-image:none!important;border-radius:0!important;box-shadow:none!important}
+.brandmark:not(.has-image){font-size:1rem!important;font-weight:900!important;letter-spacing:-.02em!important}
+.loginfallback{font-size:1.5rem!important;font-weight:900!important}
+.mark:not(.haslogo){font-size:1.3rem!important;font-weight:900!important}
+.brandvisual.crest:not(:has(img)){font-size:1.35rem!important}
+.pendingbrand.crest:not(:has(img)){font-size:1.3rem!important}
+@keyframes apPlayerAttention{0%,100%{border-color:color-mix(in srgb,var(--ap-player-alert) 72%,#111b2e);box-shadow:0 0 0 1px color-mix(in srgb,var(--ap-player-alert) 12%,transparent),0 0 18px color-mix(in srgb,var(--ap-player-alert) 10%,transparent)}50%{border-color:var(--ap-player-alert);box-shadow:0 0 0 3px color-mix(in srgb,var(--ap-player-alert) 20%,transparent),0 0 34px color-mix(in srgb,var(--ap-player-alert) 28%,transparent)}}
+.playerattention{border-color:var(--ap-player-alert)!important;background:linear-gradient(135deg,color-mix(in srgb,var(--ap-player-alert) 13%,transparent),rgba(17,27,46,.96))!important;animation:apPlayerAttention 1.8s ease-in-out infinite!important}
+.playerattention .navicon{color:var(--ap-player-alert)!important}
+.playerattention .attentionbadge{border-color:color-mix(in srgb,var(--ap-player-alert) 58%,transparent)!important;background:color-mix(in srgb,var(--ap-player-alert) 16%,transparent)!important;color:color-mix(in srgb,var(--ap-player-alert) 72%,white)!important}
+.playerattention .navarrow{color:color-mix(in srgb,var(--ap-player-alert) 72%,white)!important}
+@media(prefers-reduced-motion:reduce){.playerattention{animation:none!important}}
 </style>`;
 
+const polishBrandingPage = (html:string,alert:string) => {
+  html = html.replace("<h2>Main logo / crest</h2>","<h2>Main Site Logo</h2>");
+  html = html.replace("Square PNG or WebP works best · Around 1000 × 1000 px is ideal.","Square or near-square logo with a transparent background. PNG or WebP preferred. Leave a little clear space around the artwork so it displays cleanly throughout the site.");
+  html = html.replace("Choose main logo","Choose Main Site Logo");
+  html = html.replace("Choose a safe starting theme, then tweak the two identity colours if you want. The sample updates immediately; press Save theme to apply it across the platform.","Choose a safe starting theme, then tweak the identity colours if you want. Player Alert Colour is kept separate so action-required cards stay visible even when your accent colour is similar. The sample updates immediately; press Save theme to apply it across the platform.");
+  const iconField = `<div><label>Icon colour</label><input id="theme-icon" name="theme_icon" type="color"`;
+  const i = html.indexOf(iconField);
+  if(i>=0){
+    const end = html.indexOf("</div>",i);
+    if(end>=0) html = html.slice(0,end+6)+`<div><label>Player Alert Colour</label><input id="theme-player-alert" name="theme_player_alert" type="color" value="${alert}"></div>`+html.slice(end+6);
+  }
+  html = html.replace("<div class=\"previewbutton\">Example button</div>","<div class=\"previewalert\">Player alert</div><div class=\"previewbutton\">Example button</div>");
+  html = html.replace("</head>",`<style>.themegrid{grid-template-columns:repeat(4,minmax(0,1fr))}.previewalert{padding:9px 12px;border:2px solid var(--ap-player-alert);border-radius:9px;color:color-mix(in srgb,var(--ap-player-alert) 72%,white);font-size:.78rem;font-weight:900}@media(max-width:900px){.themegrid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:650px){.themegrid{grid-template-columns:1fr}}</style></head>`);
+  html = html.replace("</body>",`<script>(()=>{const a=document.getElementById('theme-player-alert');if(!a)return;const apply=()=>document.documentElement.style.setProperty('--ap-player-alert',a.value);a.addEventListener('input',apply);apply()})();</script></body>`);
+  return html;
+};
+
 export default {
-  async fetch(request: Request, env: unknown, ctx: ExecutionContext): Promise<Response> {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+    const url = new URL(request.url);
+    let themeForm:FormData|null = null;
+    if(request.method==="POST" && url.pathname==="/settings/alliance/branding"){
+      try{
+        const f=await request.clone().formData();
+        if(String(f.get("slot")||"")==="theme") themeForm=f;
+      }catch{}
+    }
+
     const response = await (app as any).fetch(request, env, ctx);
+
+    if(themeForm && response instanceof Response){
+      const location=response.headers.get("location")||"";
+      if(location.includes("saved=theme")||location.includes("saved=reset")){
+        const reset=String(themeForm.get("theme_action")||"save")==="reset";
+        const chosen=String(themeForm.get("theme_player_alert")||"");
+        await saveAlertColour(env,reset?DEFAULT_ALERT:(validHex(chosen)?chosen:DEFAULT_ALERT));
+      }
+    }
+
     if (!(response instanceof Response) || !response.headers.get("content-type")?.includes("text/html")) return response;
-    const html = await response.text();
+    let html = await response.text();
     if (!html.includes("</head>")) return response;
+    const alert=await getAlertColour(env);
+    if(request.method==="GET" && url.pathname==="/settings/alliance/branding") html=polishBrandingPage(html,alert);
     const headers = new Headers(response.headers);
     headers.delete("content-length");
-    return new Response(html.replace("</head>", `${TRANSPARENT_BRANDING_CSS}</head>`), {
+    return new Response(html.replace("</head>", `${brandingCss(alert)}</head>`), {
       status: response.status,
       statusText: response.statusText,
       headers,
     });
   },
-} satisfies ExportedHandler<any>;
+} satisfies ExportedHandler<Env>;
