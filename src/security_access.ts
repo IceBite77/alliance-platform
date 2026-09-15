@@ -3,8 +3,7 @@ import app from "./player_account_link";
 interface Env { DB:D1Database; ASSETS:R2Bucket; APP_URL:string; DISCORD_CLIENT_ID:string; DISCORD_CLIENT_SECRET:string; DISCORD_BOT_TOKEN:string; SETUP_KEY:string; AUTH_SECRET:string; }
 type Actor={id:number;display_name:string;is_owner:number};
 type SessionAccount={id:number;display_name:string;is_owner:number;is_active:number;approval_status:string};
-type DiscordToken={access_token:string}; type DiscordUser={id:string;username:string;global_name?:string|null};
-const SESSION_COOKIE="ap_session",LOGIN_COOKIE="ap_login_oauth",DISCORD_API="https://discord.com/api/v10",SESSION_MAX_AGE=60*60*24*14;
+const SESSION_COOKIE="ap_session";
 const cookie=(r:Request,n:string)=>{for(const p of(r.headers.get("cookie")??"").split(";")){const [x,...z]=p.trim().split("=");if(x===n)return z.join("=")}return null};
 const b64=(b:Uint8Array)=>{let s="";for(const x of b)s+=String.fromCharCode(x);return btoa(s).replaceAll("+","-").replaceAll("/","_").replaceAll("=","")};
 const hash=async(v:string)=>b64(new Uint8Array(await crypto.subtle.digest("SHA-256",new TextEncoder().encode(v))));
@@ -13,7 +12,27 @@ const actor=async(r:Request,e:Env)=>{const a=await sessionAccount(r,e);return a&
 const safePost=(r:Request,e:Env)=>{const origin=r.headers.get("origin"),site=r.headers.get("sec-fetch-site");if(site&&site!=="same-origin"&&site!=="same-site"&&site!=="none")return false;if(!origin||origin==="null")return true;try{const o=new URL(origin).hostname,h=new URL(r.url).hostname,a=new URL(e.APP_URL).hostname;return o===h||o===a}catch{return false}};
 const redirect=(u:string,r:Request)=>Response.redirect(new URL(u,r.url),302);
 const audit=(e:Env,a:Actor,action:string,id:number,oldValues:unknown,newValues:unknown)=>e.DB.prepare("INSERT INTO audit_log (public_id,actor_account_id,actor_display_name,action,entity_type,entity_id,source,old_values,new_values) VALUES (?,?,?,?,?,?,?,?,?)").bind(crypto.randomUUID(),a.id,a.display_name,action,"account",String(id),"web",JSON.stringify(oldValues),JSON.stringify(newValues)).run();
-export default {async fetch(request:Request,env:Env):Promise<Response>{const u=new URL(request.url),sa=await sessionAccount(request,env);
-if(sa){let blocked=false;try{blocked=!!await env.DB.prepare("SELECT 1 FROM account_security_blocks WHERE account_id=? AND unblocked_at IS NULL").bind(sa.id).first()}catch{}if(blocked&&u.pathname!=="/auth/logout")return new Response("Access blocked",{status:403});}
-const decision=u.pathname.match(/^\/security\/access\/(\d+)\/(approve|reject)$/);if(decision&&request.method==="POST"){const a=await actor(request,env);if(!a?.is_owner||!safePost(request,env))return new Response("Forbidden",{status:403});const id=Number(decision[1]),target=await env.DB.prepare("SELECT id,approval_status FROM accounts WHERE id=? AND is_owner=0").bind(id).first<{id:number;approval_status:string}>();if(!target||target.approval_status!=="pending")return new Response("Pending account not found",{status:404});if(decision[2]==="reject"){await env.DB.batch([env.DB.prepare("UPDATE accounts SET approval_status='rejected',is_active=1,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(id),env.DB.prepare("UPDATE sessions SET revoked_at=CURRENT_TIMESTAMP WHERE account_id=? AND revoked_at IS NULL").bind(id)]);await audit(env,a,"account.signup.rejected",id,{status:"pending"},{status:"rejected"});return redirect("/players?access=updated",request)}const f=await request.formData(),pid=Number(f.get("player_id"));if(!Number.isInteger(pid)||pid<1)return new Response("Choose a player",{status:400});const p=await env.DB.prepare("SELECT id FROM players WHERE id=? AND is_active=1").bind(pid).first();if(!p)return new Response("Player not found",{status:404});const used=await env.DB.prepare("SELECT id FROM accounts WHERE player_id=? AND id<>?").bind(pid,id).first();if(used)return new Response("That player is already linked to another account",{status:409});await env.DB.batch([env.DB.prepare("UPDATE accounts SET player_id=?,approval_status='active',is_active=1,approved_at=CURRENT_TIMESTAMP,approved_by_account_id=?,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(pid,a.id,id),env.DB.prepare("INSERT OR IGNORE INTO account_groups(account_id,group_id,added_by_account_id) SELECT ?,id,? FROM permission_groups WHERE public_id='group-members'").bind(id,a.id)]);await audit(env,a,"account.signup.approved",id,{status:"pending"},{status:"active",player_id:pid});return redirect("/players?access=updated",request)}
-return (app as any).fetch(request,env)}} satisfies ExportedHandler<Env>;
+
+export default {async fetch(request:Request,env:Env):Promise<Response>{
+  const u=new URL(request.url);
+  // Normal application pages must never depend on the experimental block layer.
+  // Keep the established downstream auth/player stack in charge of them.
+  if(!u.pathname.startsWith("/security/access/")) return (app as any).fetch(request,env);
+
+  const decision=u.pathname.match(/^\/security\/access\/(\d+)\/(approve|reject)$/);
+  if(decision&&request.method==="POST"){
+    const a=await actor(request,env);if(!a?.is_owner||!safePost(request,env))return new Response("Forbidden",{status:403});
+    const id=Number(decision[1]),target=await env.DB.prepare("SELECT id,approval_status FROM accounts WHERE id=? AND is_owner=0").bind(id).first<{id:number;approval_status:string}>();
+    if(!target||target.approval_status!=="pending")return new Response("Pending account not found",{status:404});
+    if(decision[2]==="reject"){
+      await env.DB.batch([env.DB.prepare("UPDATE accounts SET approval_status='rejected',is_active=1,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(id),env.DB.prepare("UPDATE sessions SET revoked_at=CURRENT_TIMESTAMP WHERE account_id=? AND revoked_at IS NULL").bind(id)]);
+      await audit(env,a,"account.signup.rejected",id,{status:"pending"},{status:"rejected"});return redirect("/players?access=updated",request)
+    }
+    const f=await request.formData(),pid=Number(f.get("player_id"));if(!Number.isInteger(pid)||pid<1)return new Response("Choose a player",{status:400});
+    const p=await env.DB.prepare("SELECT id FROM players WHERE id=? AND is_active=1").bind(pid).first();if(!p)return new Response("Player not found",{status:404});
+    const used=await env.DB.prepare("SELECT id FROM accounts WHERE player_id=? AND id<>?").bind(pid,id).first();if(used)return new Response("That player is already linked to another account",{status:409});
+    await env.DB.batch([env.DB.prepare("UPDATE accounts SET player_id=?,approval_status='active',is_active=1,approved_at=CURRENT_TIMESTAMP,approved_by_account_id=?,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(pid,a.id,id),env.DB.prepare("INSERT OR IGNORE INTO account_groups(account_id,group_id,added_by_account_id) SELECT ?,id,? FROM permission_groups WHERE public_id='group-members'").bind(id,a.id)]);
+    await audit(env,a,"account.signup.approved",id,{status:"pending"},{status:"active",player_id:pid});return redirect("/players?access=updated",request)
+  }
+  return (app as any).fetch(request,env)
+}} satisfies ExportedHandler<Env>;
