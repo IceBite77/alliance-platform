@@ -1,0 +1,14 @@
+import runtime from "./runtime";
+import securityDashboard from "./security_dashboard";
+
+interface Env { DB:D1Database; ASSETS:R2Bucket; APP_URL:string; DISCORD_CLIENT_ID:string; DISCORD_CLIENT_SECRET:string; DISCORD_BOT_TOKEN:string; SETUP_KEY:string; AUTH_SECRET:string; }
+
+export default {
+  async fetch(request:Request,env:Env,ctx:ExecutionContext):Promise<Response>{
+    const url=new URL(request.url);
+    if(request.method==="GET" && url.pathname==="/security/access"){
+      return (securityDashboard as any).fetch(request,env,ctx);
+    }
+    return (runtime as any).fetch(request,env,ctx);
+  }
+} satisfies ExportedHandler<Env>;
