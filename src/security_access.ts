@@ -16,6 +16,7 @@ const safePost=(r:Request,e:Env)=>{const origin=r.headers.get("origin"),site=r.h
 const redirect=(u:string,r:Request)=>Response.redirect(new URL(u,r.url),302);
 const audit=(e:Env,a:Actor,action:string,id:number,oldValues:unknown,newValues:unknown)=>e.DB.prepare("INSERT INTO audit_log (public_id,actor_account_id,actor_display_name,action,entity_type,entity_id,source,old_values,new_values) VALUES (?,?,?,?,?,?,?,?,?)").bind(crypto.randomUUID(),a.id,a.display_name,action,"account",String(id),"web",JSON.stringify(oldValues),JSON.stringify(newValues)).run();
 const withHtml=(res:Response,html:string)=>{const headers=new Headers(res.headers);headers.delete("content-length");return new Response(html,{status:res.status,statusText:res.statusText,headers})};
+const pendingPage=(name:string)=>new Response(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Waiting for access</title><style>:root{color-scheme:dark;font-family:Inter,system-ui,sans-serif}*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:20px;background:radial-gradient(circle at top,#17243d 0,#0c1220 45%,#090e18 100%);color:#eef3ff}.box{width:min(92vw,560px);padding:36px;text-align:center;background:#151d2e;border:1px solid #2b3850;border-radius:20px;box-shadow:0 24px 70px rgba(0,0,0,.35)}.duck{font-size:3rem;margin-bottom:14px}.step{font-size:.76rem;text-transform:uppercase;letter-spacing:.09em;color:#8292ae;font-weight:900}h1{margin:8px 0 10px;font-size:1.7rem}p{margin:0 auto 20px;color:#aebddd;line-height:1.55}.who{padding:12px 14px;margin:18px 0;border:1px solid #34445f;border-radius:11px;background:#0e1626;color:#dce5f5;font-weight:800}a{color:#aebddd;text-decoration:none;font-weight:800}</style></head><body><main class="box"><div class="duck">🦆</div><div class="step">Access request received</div><h1>Waiting for access</h1><p>Your Discord account has been recognised, but a member of the alliance leadership needs to match it to your player profile before you can continue.</p><div class="who">${esc(name)}</div><p>You can close this page. Once your access is approved, sign in again with the same Discord account.</p><a href="/auth/logout">Sign out</a></main></body></html>`,{headers:{"content-type":"text/html; charset=utf-8","cache-control":"no-store","x-frame-options":"DENY","referrer-policy":"no-referrer"}});
 const waitingPanel=async(request:Request,env:Env,res:Response)=>{
   if(request.method!=="GET"||new URL(request.url).pathname!=="/players"||res.status!==200||!res.headers.get("content-type")?.includes("text/html"))return res;
   const a=await actor(request,env).catch(()=>null);if(!a?.is_owner)return res;
@@ -32,6 +33,9 @@ const waitingPanel=async(request:Request,env:Env,res:Response)=>{
 
 export default {async fetch(request:Request,env:Env):Promise<Response>{
   const u=new URL(request.url);
+  if(request.method==="GET"&&u.pathname==="/pending"){
+    const a=await sessionAccount(request,env).catch(()=>null);if(!a)return redirect("/login",request);if(a.approval_status==="active"&&a.is_active)return redirect("/",request);if(a.approval_status!=="pending")return redirect("/login",request);return pendingPage(a.display_name)
+  }
   if(request.method==="GET"&&u.pathname==="/players")return waitingPanel(request,env,await (app as any).fetch(request,env));
   if(!u.pathname.startsWith("/security/access/"))return (app as any).fetch(request,env);
   const decision=u.pathname.match(/^\/security\/access\/(\d+)\/(approve|reject)$/);
