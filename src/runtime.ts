@@ -1,4 +1,4 @@
-import app from "./player_account_link";
+import app from "./security_access";
 
 interface Env {
   DB: D1Database;
