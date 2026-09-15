@@ -14,6 +14,3 @@ CREATE TABLE IF NOT EXISTS account_security_blocks (
 
 CREATE INDEX IF NOT EXISTS idx_account_security_blocks_active
   ON account_security_blocks(unblocked_at, blocked_at);
-
-INSERT OR REPLACE INTO schema_version(version, applied_at)
-VALUES (14, CURRENT_TIMESTAMP);
