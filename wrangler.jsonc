@@ -1,7 +1,7 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "alliance-platform",
-  "main": "src/runtime.ts",
+  "main": "src/branding_transparency.ts",
   "compatibility_date": "2026-09-13",
   "workers_dev": false,
   "preview_urls": false,
