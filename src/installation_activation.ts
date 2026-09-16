@@ -26,7 +26,10 @@ async function activate(r:Request,e:Env,row:ActivationRow){const f=await r.formD
 
 async function ownerStart(r:Request,e:Env,ctx:ExecutionContext){const f=new FormData();f.set("setup_key",e.SETUP_KEY);const headers=new Headers(r.headers);headers.delete("content-length");headers.set("content-type","application/x-www-form-urlencoded");const body=new URLSearchParams({setup_key:e.SETUP_KEY});return app.fetch(new Request(r.url,{method:"POST",headers,body,redirect:r.redirect}),e as any,ctx)}
 
-export default {async fetch(r:Request,e:Env,ctx:ExecutionContext){const u=new URL(r.url),row=await activation(e);
+export default {async fetch(r:Request,e:Env,ctx:ExecutionContext){const u=new URL(r.url);
+  const uiV2=await handleUiV2(r,e);
+  if(uiV2)return uiV2;
+  const row=await activation(e);
   // Databases created before migration 0016 continue normally until the migration is applied.
   if(!row)return app.fetch(r,e as any,ctx);
   if(row.status!=="active"){
@@ -41,7 +44,5 @@ export default {async fetch(r:Request,e:Env,ctx:ExecutionContext){const u=new UR
     return owner?app.fetch(r,e as any,ctx):ownerPage();
   }
   if(r.method==="POST"&&u.pathname==="/setup/discord/start")return ownerStart(r,e,ctx);
-  const uiV2=await handleUiV2(r,e);
-  if(uiV2)return uiV2;
   return app.fetch(r,e as any,ctx);
 }} satisfies ExportedHandler<Env>;
