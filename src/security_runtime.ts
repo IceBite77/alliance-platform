@@ -39,6 +39,17 @@ const rewriteSettingsHtml=(html:string)=>html
   .replaceAll('href="/settings/players"','href="/leadership/settings/players"')
   .replaceAll('action="/settings/players"','action="/leadership/settings/players"');
 
+const leadershipAdminEnv=(env:Env)=>{
+  const db=new Proxy(env.DB as any,{get(target,prop,receiver){
+    if(prop==="prepare")return (sql:string)=>target.prepare(String(sql)
+      .replaceAll(" AND a.is_owner=1 LIMIT 1"," LIMIT 1")
+      .replaceAll(" AND a.is_owner = 1 LIMIT 1"," LIMIT 1")
+      .replaceAll(" AND a.is_owner=1","");
+    const value=Reflect.get(target,prop,receiver);return typeof value==="function"?value.bind(target):value;
+  }});
+  return new Proxy(env as any,{get(target,prop,receiver){if(prop==="DB")return db;return Reflect.get(target,prop,receiver)}});
+};
+
 export default {
   async fetch(request:Request,env:Env,ctx:ExecutionContext):Promise<Response>{
     const url=new URL(request.url);
@@ -82,7 +93,7 @@ export default {
       const actor=await playerActor(request,env);if(!actor)return Response.redirect(new URL("/login",request.url),302);
       if(!await playerPermitted(env,actor,"settings.manage"))return new Response("Forbidden",{status:403});
       const rewritten=new URL(request.url);rewritten.pathname=internalSettings;
-      const response=await (runtime as any).fetch(new Request(rewritten.toString(),request),env,ctx);
+      const response=await (runtime as any).fetch(new Request(rewritten.toString(),request),leadershipAdminEnv(env),ctx);
       const location=response.headers.get("location");
       if(location){const target=new URL(location),canonical=settingsCanonical(target.pathname);if(canonical){target.pathname=canonical;const headers=new Headers(response.headers);headers.set("location",target.toString());return new Response(response.body,{status:response.status,statusText:response.statusText,headers});}}
       if(response.headers.get("content-type")?.includes("text/html")){const body=rewriteSettingsHtml(await response.text());return new Response(body,{status:response.status,statusText:response.statusText,headers:response.headers});}
