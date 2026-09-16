@@ -1,4 +1,4 @@
-import app from "./security_dashboard";
+import app from "./account_lifecycle";
 import { leadershipHeader, leadershipShellCss } from "./leadership_shell";
 
 interface Env { DB:D1Database; }
