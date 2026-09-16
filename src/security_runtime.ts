@@ -1,4 +1,4 @@
-import runtime from "./leadership_access";
+import runtime from "./leadership_audit";
 import securityDashboard from "./security_groups";
 import securityGroupPage from "./security_group_page";
 import accountLifecycle from "./account_lifecycle";
