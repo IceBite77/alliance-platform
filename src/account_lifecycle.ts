@@ -3,10 +3,10 @@ import {playerActor,playerPermitted,playerSameOrigin} from "./player_access";
 
 interface Env { DB:D1Database; ASSETS:R2Bucket; APP_URL:string; DISCORD_CLIENT_ID:string; DISCORD_CLIENT_SECRET:string; DISCORD_BOT_TOKEN:string; SETUP_KEY:string; AUTH_SECRET:string; }
 type Actor={id:number;display_name:string;is_owner:number};
-type Linked={id:number;display_name:string;is_owner:number;provider_username:string|null};
+type Linked={id:number;display_name:string;is_active:number;is_owner:number;provider_username:string|null};
 type Player={id:number;display_name:string;is_active:number;left_at:string|null};
 const redirect=(u:string,r:Request)=>Response.redirect(new URL(u,r.url),302);
-const linkedAccount=async(e:Env,playerId:number)=>e.DB.prepare(`SELECT a.id,a.display_name,a.is_owner,i.provider_username FROM accounts a LEFT JOIN account_identities i ON i.account_id=a.id AND i.provider='discord' WHERE a.player_id=? LIMIT 1`).bind(playerId).first<Linked>();
+const linkedAccount=async(e:Env,playerId:number)=>e.DB.prepare(`SELECT a.id,a.display_name,a.is_active,a.is_owner,i.provider_username FROM accounts a LEFT JOIN account_identities i ON i.account_id=a.id AND i.provider='discord' WHERE a.player_id=? LIMIT 1`).bind(playerId).first<Linked>();
 const authorised=async(r:Request,e:Env,permission:string)=>{
   const a=await playerActor(r,e) as Actor|null;
   if(!a)return {response:redirect("/login",r),actor:null};
@@ -14,14 +14,28 @@ const authorised=async(r:Request,e:Env,permission:string)=>{
   if(!await playerPermitted(e,a,permission))return {response:new Response("Forbidden",{status:403}),actor:null};
   return {response:null,actor:a};
 };
+const audit=async(e:Env,a:Actor,action:string,playerId:number,accountId:number,oldValues:unknown,newValues:unknown,metadata:unknown={})=>e.DB.prepare("INSERT INTO audit_log (public_id,actor_account_id,actor_display_name,action,entity_type,entity_id,subject_player_id,source,old_values,new_values,metadata) VALUES (?,?,?,?,?,?,?,?,?,?,?)").bind(crypto.randomUUID(),a.id,a.display_name,action,"account",String(accountId),playerId,"web",JSON.stringify(oldValues),JSON.stringify(newValues),JSON.stringify(metadata)).run();
 const removeLogin=async(e:Env,a:Actor,playerId:number,linked:Linked,reason:string)=>{
   if(linked.is_owner)throw new Error("OWNER_ACCOUNT_PROTECTED");
   const discord=linked.provider_username||linked.display_name;
   const groups=(await e.DB.prepare("SELECT group_id FROM account_groups WHERE account_id=?").bind(linked.id).all<{group_id:number}>()).results?.map(x=>x.group_id)??[];
   const revoked=await e.DB.prepare("UPDATE sessions SET revoked_at=CURRENT_TIMESTAMP WHERE account_id=? AND revoked_at IS NULL").bind(linked.id).run();
   await e.DB.prepare("DELETE FROM account_groups WHERE account_id=?").bind(linked.id).run();
-  await e.DB.prepare(`INSERT INTO audit_log (public_id,actor_account_id,actor_display_name,action,entity_type,entity_id,subject_player_id,source,old_values,new_values,metadata) VALUES (?,?,?,?,?,?,?,?,?,?,?)`).bind(crypto.randomUUID(),a.id,a.display_name,"account.discord_disconnected","account",String(linked.id),playerId,"web",JSON.stringify({player_id:playerId,discord,group_ids:groups}),JSON.stringify({discord:null,account_removed:true,group_ids:[]}),JSON.stringify({reason,sessions_revoked:Number(revoked.meta?.changes??0),groups_removed:groups.length,player_preserved:true,login_account_removed:true})).run();
+  await audit(e,a,"account.discord_disconnected",playerId,linked.id,{player_id:playerId,discord,group_ids:groups},{discord:null,account_removed:true,group_ids:[]},{reason,sessions_revoked:Number(revoked.meta?.changes??0),groups_removed:groups.length,player_preserved:true,login_account_removed:true});
   await e.DB.prepare("DELETE FROM accounts WHERE id=? AND is_owner=0").bind(linked.id).run();
+};
+const loginAccess=async(r:Request,e:Env,playerId:number,enable:boolean)=>{
+  const auth=await authorised(r,e,"accounts.manage");if(auth.response)return auth.response;const a=auth.actor!;
+  const linked=await linkedAccount(e,playerId);if(!linked)return new Response("No linked account",{status:400});
+  // Ownership is protected absolutely: Administrators and custom groups can never
+  // disable or otherwise alter the Owner's login account through account management.
+  if(linked.is_owner)return redirect(`/players/${playerId}?accesserror=owner`,r);
+  if(enable){
+    if(!linked.is_active){await e.DB.prepare("UPDATE accounts SET is_active=1,updated_at=CURRENT_TIMESTAMP WHERE id=? AND is_owner=0").bind(linked.id).run();await audit(e,a,"account.login_enabled",playerId,linked.id,{is_active:0},{is_active:1},{sessions_revoked:0});}
+    return redirect(`/players/${playerId}?access=enabled`,r);
+  }
+  if(linked.is_active){await e.DB.prepare("UPDATE accounts SET is_active=0,updated_at=CURRENT_TIMESTAMP WHERE id=? AND is_owner=0").bind(linked.id).run();const revoked=await e.DB.prepare("UPDATE sessions SET revoked_at=CURRENT_TIMESTAMP WHERE account_id=? AND revoked_at IS NULL").bind(linked.id).run();await audit(e,a,"account.login_disabled",playerId,linked.id,{is_active:1},{is_active:0},{sessions_revoked:Number(revoked.meta?.changes??0)});}
+  return redirect(`/players/${playerId}?access=disabled`,r);
 };
 const disconnect=async(r:Request,e:Env,playerId:number)=>{
   const auth=await authorised(r,e,"accounts.manage");if(auth.response)return auth.response;const a=auth.actor!;
@@ -50,7 +64,10 @@ const formerByUpdate=async(r:Request,e:Env,playerId:number)=>{
   return response;
 };
 export default {async fetch(request:Request,env:Env):Promise<Response>{
-  const u=new URL(request.url),disconnectMatch=u.pathname.match(/^\/players\/(\d+)\/disconnect-discord$/);
+  const u=new URL(request.url);
+  const accessMatch=u.pathname.match(/^\/players\/(\d+)\/(disable-login|enable-login)$/);
+  if(request.method==="POST"&&accessMatch)return loginAccess(request,env,Number(accessMatch[1]),accessMatch[2]==="enable-login");
+  const disconnectMatch=u.pathname.match(/^\/players\/(\d+)\/disconnect-discord$/);
   if(request.method==="POST"&&disconnectMatch)return disconnect(request,env,Number(disconnectMatch[1]));
   const deactivateMatch=u.pathname.match(/^\/players\/(\d+)\/deactivate$/);
   if(request.method==="POST"&&deactivateMatch)return deactivatePlayer(request,env,Number(deactivateMatch[1]));
