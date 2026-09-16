@@ -19,12 +19,26 @@ const leadershipUiEnv=(env:Env)=>{
       if(prop==="prepare")return (sql:string)=>target.prepare(String(sql)
         .replaceAll(" AND a.is_owner=1 LIMIT 1"," LIMIT 1")
         .replaceAll(" AND a.is_owner = 1 LIMIT 1"," LIMIT 1")
-        .replaceAll(" AND a.is_owner=1",""));
+        .replaceAll(" AND a.is_owner=1","");
       const value=Reflect.get(target,prop,receiver);return typeof value==="function"?value.bind(target):value;
     }
   });
   return new Proxy(env as any,{get(target,prop,receiver){if(prop==="DB")return db;return Reflect.get(target,prop,receiver)}});
 };
+
+const masterHeaderCss=`<style id="players-leadership-master-header">
+/* Players is the visual master for every Leadership page. */
+@media(min-width:651px){
+  .adminbrand{gap:24px!important;padding:0 0 22px!important;margin-bottom:22px!important;min-height:132px!important;align-items:center!important}
+  .adminbrand .brandmark{width:112px!important;height:112px!important;flex:0 0 112px!important;border-radius:0!important;background:transparent!important;padding:0!important}
+  .adminbrand .brandmark img{width:100%!important;height:100%!important;object-fit:contain!important}
+  .adminbrand .brandcopy strong{font-size:1.72rem!important;line-height:1.12!important;font-weight:900!important}
+  .adminbrand .brandcopy span{font-size:1rem!important;margin-top:9px!important;line-height:1.25!important}
+  .adminbrand .adminidentitynav{gap:8px!important}
+  .adminbrand .signedinidentity{font-size:.82rem!important;font-weight:800!important}
+  .adminbrand .crumb a{font-size:1rem!important;font-weight:850!important}
+}
+</style>`;
 
 const rewriteResponse=async(response:Response)=>{
   const location=response.headers.get("location");
@@ -32,6 +46,7 @@ const rewriteResponse=async(response:Response)=>{
   if(!response.headers.get("content-type")?.includes("text/html"))return response;
   let body=await response.text();
   body=body.replaceAll(LIVE,PREVIEW).replaceAll('href="/players','href="'+PREVIEW).replaceAll('action="/players','action="'+PREVIEW);
+  body=body.replace("</head>",`${masterHeaderCss}</head>`);
   return new Response(body,{status:response.status,statusText:response.statusText,headers:response.headers});
 };
 
