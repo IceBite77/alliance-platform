@@ -11,7 +11,7 @@ interface Env {
   AUTH_SECRET: string;
 }
 
-const decorateBirthday = async (res: Response): Promise<Response> => {
+const decorateBirthday = async (res: Response, env: Env, playerId: number | null): Promise<Response> => {
   const type = res.headers.get("content-type") ?? "";
   if (!type.includes("text/html")) return res;
 
@@ -20,12 +20,15 @@ const decorateBirthday = async (res: Response): Promise<Response> => {
   const dayBlock = h.match(/<div><label>Birthday day<\/label>[\s\S]*?<input name="birthday_day"[^>]*><\/div>/)?.[0];
   if (!monthBlock || !dayBlock) return new Response(h, { status: res.status, statusText: res.statusText, headers: res.headers });
 
-  const monthSelected = monthBlock.match(/<option value="(\d+)" selected/)?.[1] ?? "";
-  const day = dayBlock.match(/value="([^"]*)"/)?.[1] ?? "";
-  const value = day && monthSelected
-    ? `${String(day).padStart(2, "0")}/${String(monthSelected).padStart(2, "0")}`
-    : "";
+  let month: number | null = null;
+  let day: number | null = null;
+  if (playerId !== null) {
+    const stored = await env.DB.prepare("SELECT birthday_month,birthday_day FROM players WHERE id=? LIMIT 1").bind(playerId).first<{birthday_month:number|null;birthday_day:number|null}>();
+    month = stored?.birthday_month ?? null;
+    day = stored?.birthday_day ?? null;
+  }
 
+  const value = day && month ? `${String(day).padStart(2, "0")}/${String(month).padStart(2, "0")}` : "";
   const birthday = `<div><label>Birthday</label><input name="birthday" type="text" inputmode="numeric" maxlength="5" placeholder="DD/MM" pattern="(?:0?[1-9]|[12][0-9]|3[01])\/(?:0?[1-9]|1[0-2])" value="${value}"><div class="hint">Day and month only · DD/MM</div></div>`;
 
   const first = h.indexOf(monthBlock);
@@ -43,8 +46,9 @@ export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const res = await (app as any).fetch(request, env);
     const p = new URL(request.url).pathname;
-    if (res instanceof Response && request.method === "GET" && (p === "/players/new" || /^\/players\/\d+$/.test(p))) {
-      return decorateBirthday(res);
+    const match = p.match(/^\/players\/(\d+)$/);
+    if (res instanceof Response && request.method === "GET" && (p === "/players/new" || match)) {
+      return decorateBirthday(res, env, match ? Number(match[1]) : null);
     }
     if (res instanceof Response) return res;
     return new Response(String(res ?? ""), { headers: { "content-type": "text/html; charset=utf-8" } });
