@@ -40,13 +40,21 @@ const rewriteSettingsHtml=(html:string)=>html
   .replaceAll('action="/settings/players"','action="/leadership/settings/players"');
 
 const leadershipAdminEnv=(env:Env)=>{
-  const db=new Proxy(env.DB as any,{get(target,prop,receiver){
-    if(prop==="prepare")return (sql:string)=>target.prepare(String(sql)
-      .replaceAll(" AND a.is_owner=1 LIMIT 1"," LIMIT 1")
-      .replaceAll(" AND a.is_owner = 1 LIMIT 1"," LIMIT 1")
-      .replaceAll(" AND a.is_owner=1","");
-    const value=Reflect.get(target,prop,receiver);return typeof value==="function"?value.bind(target):value;
-  }});
+  const db=new Proxy(env.DB as any,{
+    get(target,prop,receiver){
+      if(prop==="prepare"){
+        return (sql:string)=>{
+          const rewrittenSql=String(sql)
+            .replaceAll(" AND a.is_owner=1 LIMIT 1"," LIMIT 1")
+            .replaceAll(" AND a.is_owner = 1 LIMIT 1"," LIMIT 1")
+            .replaceAll(" AND a.is_owner=1","");
+          return target.prepare(rewrittenSql);
+        };
+      }
+      const value=Reflect.get(target,prop,receiver);
+      return typeof value==="function"?value.bind(target):value;
+    }
+  });
   return new Proxy(env as any,{get(target,prop,receiver){if(prop==="DB")return db;return Reflect.get(target,prop,receiver)}});
 };
 
