@@ -36,11 +36,26 @@ const masterHeaderCss=`<style id="players-leadership-master-header">
   .adminbrand .brandmark img{width:100%!important;height:100%!important;object-fit:contain!important}
   .adminbrand .brandcopy strong{font-size:1.72rem!important;line-height:1.12!important;font-weight:900!important}
   .adminbrand .brandcopy span{font-size:1rem!important;margin-top:9px!important;line-height:1.25!important}
-  .adminbrand .adminidentitynav{gap:8px!important}
-  .adminbrand .signedinidentity{font-size:.82rem!important;font-weight:800!important}
-  .adminbrand .crumb a{font-size:1rem!important;font-weight:850!important}
+  .adminbrand .adminidentitynav{gap:5px!important;min-width:245px!important}
+  .adminbrand .signedinidentity{font-size:0!important;line-height:1!important;color:#eef3ff!important;font-weight:900!important}
+  .adminbrand .signedinidentity::before{content:'Welcome ' attr(data-player);display:block;font-size:1.22rem!important;line-height:1.15!important;color:#eef3ff!important;font-weight:900!important}
+  .adminbrand .signedinidentity::after{content:attr(data-rank);display:block;margin-top:7px;font-size:.78rem!important;line-height:1.2!important;color:#90a0bb!important;font-weight:800!important}
+  .adminbrand .crumb{margin-top:11px!important}
+  .adminbrand .crumb a{display:inline-flex!important;align-items:center!important;gap:8px!important;padding:9px 13px!important;border:1px solid #34445f!important;border-radius:10px!important;background:#111b2e!important;color:#b9c8e5!important;font-size:.82rem!important;font-weight:850!important;text-decoration:none!important;transition:border-color .15s ease,background .15s ease,transform .15s ease!important}
+  .adminbrand .crumb a:hover{border-color:#526b94!important;background:#17243a!important;transform:translateY(-1px)!important;color:#eef3ff!important}
 }
 </style>`;
+
+const enhanceIdentity=(body:string)=>{
+  const match=body.match(/<div class="signedinidentity"([^>]*)>([^<]*)<\/div>/);
+  if(!match)return body;
+  const text=match[2].trim();
+  const parts=text.split(" · ");
+  const player=parts.shift()||"";
+  const rank=parts.join(" · ")||"";
+  const attrs=`${match[1]} data-player="${player.replaceAll('&','&amp;').replaceAll('"','&quot;')}" data-rank="${rank.replaceAll('&','&amp;').replaceAll('"','&quot;')}"`;
+  return body.replace(match[0],`<div class="signedinidentity"${attrs}>${match[2]}</div>`);
+};
 
 const rewriteResponse=async(response:Response)=>{
   const location=response.headers.get("location");
@@ -48,6 +63,7 @@ const rewriteResponse=async(response:Response)=>{
   if(!response.headers.get("content-type")?.includes("text/html"))return response;
   let body=await response.text();
   body=body.replaceAll(LIVE,PREVIEW).replaceAll('href="/players','href="'+PREVIEW).replaceAll('action="/players','action="'+PREVIEW);
+  body=enhanceIdentity(body);
   body=body.replace("</head>",`${masterHeaderCss}</head>`);
   return new Response(body,{status:response.status,statusText:response.statusText,headers:response.headers});
 };
