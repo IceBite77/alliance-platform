@@ -56,7 +56,7 @@ type PlayerRow={rank:number|null;rank_name:string|null};
 
 const NAV_ITEMS:UiV2NavItem[]=[
   {label:"Leadership Console",href:"/ui-v2",section:"Navigation"},
-  {label:"Players",href:"/leadership/players",section:"Management",anyPermission:["players.edit","players.manage_membership","players.approve_changes"]},
+  {label:"Players",href:"/ui-v2/players",section:"Management",anyPermission:["players.edit","players.manage_membership","players.approve_changes"]},
   {label:"Access & Permissions",href:"/leadership/security",section:"Security",anyPermission:["accounts.manage","permissions.manage"]},
   {label:"Audit Log",href:"/leadership/audit",section:"Security",anyPermission:["audit.view"]},
   {label:"Settings Home",href:"/leadership/settings",section:"Settings",anyPermission:["settings.manage","settings.details","settings.branding","settings.discord","settings.ranks","settings.players"]},
