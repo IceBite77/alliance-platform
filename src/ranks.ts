@@ -1,4 +1,5 @@
 import app from "./polish";
+import {playerActor,playerPermitted,playerSameOrigin,type PlayerActor} from "./player_access";
 
 interface Env {
   DB: D1Database;
@@ -11,19 +12,18 @@ interface Env {
   AUTH_SECRET: string;
 }
 
-const SESSION_COOKIE="ap_session";
-const cookie=(r:Request,n:string)=>{for(const p of(r.headers.get("cookie")??"").split(";")){const [x,...z]=p.trim().split("=");if(x===n)return z.join("=")}return null};
-const b64=(b:Uint8Array)=>{let s="";for(const x of b)s+=String.fromCharCode(x);return btoa(s).replaceAll("+","-").replaceAll("/","_").replaceAll("=","")};
-const hash=async(v:string)=>b64(new Uint8Array(await crypto.subtle.digest("SHA-256",new TextEncoder().encode(v))));
-const owner=async(r:Request,e:Env)=>{const t=cookie(r,SESSION_COOKIE);if(!t)return null;return await e.DB.prepare(`SELECT a.id,a.display_name FROM sessions s JOIN accounts a ON a.id=s.account_id WHERE s.token_hash=? AND s.revoked_at IS NULL AND s.expires_at>CURRENT_TIMESTAMP AND a.is_active=1 AND a.approval_status='active' AND a.is_owner=1 LIMIT 1`).bind(await hash(t)).first<{id:number;display_name:string}>()};
-const audit=async(e:Env,a:{id:number;display_name:string},action:string,rank:number|string,values:unknown)=>e.DB.prepare("INSERT INTO audit_log (public_id,actor_account_id,actor_display_name,action,entity_type,entity_id,source,new_values) VALUES (?,?,?,?,?,?,?,?)").bind(crypto.randomUUID(),a.id,a.display_name,action,"alliance_rank",String(rank),"settings",JSON.stringify(values)).run();
+const rankActor=async(r:Request,e:Env)=>{
+  const a=await playerActor(r,e);
+  if(!a)return null;
+  return await playerPermitted(e,a,"settings.ranks")?a:null;
+};
+const audit=async(e:Env,a:PlayerActor,action:string,rank:number|string,values:unknown)=>e.DB.prepare("INSERT INTO audit_log (public_id,actor_account_id,actor_display_name,action,entity_type,entity_id,source,new_values) VALUES (?,?,?,?,?,?,?,?)").bind(crypto.randomUUID(),a.id,a.display_name,action,"alliance_rank",String(rank),"settings",JSON.stringify(values)).run();
 const validRank=(v:string)=>/^[1-5]$/.test(v);
 const rankKey=(rank:number)=>`ranks/r${rank}`;
-const sameOrigin=(r:Request,e:Env)=>{const site=r.headers.get("sec-fetch-site");if(site==="same-origin"||site==="none")return true;const origin=r.headers.get("origin");if(!origin)return true;return new Set([new URL(r.url).origin,new URL(e.APP_URL).origin]).has(origin)};
 
 const saveRankDisplay=async(r:Request,e:Env)=>{
-  const a=await owner(r,e);if(!a)return Response.redirect(new URL("/login",r.url),302);
-  if(!sameOrigin(r,e))return new Response("Forbidden",{status:403});
+  const a=await rankActor(r,e);if(!a)return new Response("Forbidden",{status:403});
+  if(!playerSameOrigin(r,e))return new Response("Forbidden",{status:403});
   const f=await r.formData(),show=f.get("show_rank_names")==="1"?"1":"0";
   await e.DB.prepare("INSERT INTO settings (key,value,updated_at) VALUES ('show_rank_names',?,CURRENT_TIMESTAMP) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=CURRENT_TIMESTAMP").bind(show).run();
   await audit(e,a,"alliance.rank.display.updated","display",{show_rank_names:show==="1"});
@@ -31,7 +31,8 @@ const saveRankDisplay=async(r:Request,e:Env)=>{
 };
 
 const uploadRankArtwork=async(r:Request,e:Env)=>{
-  const a=await owner(r,e);if(!a)return Response.redirect(new URL("/login",r.url),302);
+  const a=await rankActor(r,e);if(!a)return new Response("Forbidden",{status:403});
+  if(!playerSameOrigin(r,e))return new Response("Forbidden",{status:403});
   const f=await r.formData(),rs=String(f.get("rank")??""),file=f.get("asset");
   if(!validRank(rs)||!(file instanceof File)||file.size===0||file.size>5*1024*1024||!["image/png","image/jpeg","image/webp"].includes(file.type))return Response.redirect(new URL("/settings/ranks?art=error",r.url),302);
   const rank=Number(rs),old=await e.DB.prepare("SELECT image_path FROM alliance_ranks WHERE rank_level=?").bind(rank).first<{image_path:string|null}>();
@@ -45,7 +46,8 @@ const uploadRankArtwork=async(r:Request,e:Env)=>{
 };
 
 const removeRankArtwork=async(r:Request,e:Env)=>{
-  const a=await owner(r,e);if(!a)return Response.redirect(new URL("/login",r.url),302);
+  const a=await rankActor(r,e);if(!a)return new Response("Forbidden",{status:403});
+  if(!playerSameOrigin(r,e))return new Response("Forbidden",{status:403});
   const f=await r.formData(),rs=String(f.get("rank")??"");
   if(!validRank(rs))return Response.redirect(new URL("/settings/ranks?art=error",r.url),302);
   const rank=Number(rs),old=await e.DB.prepare("SELECT image_path FROM alliance_ranks WHERE rank_level=?").bind(rank).first<{image_path:string|null}>();
