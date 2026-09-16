@@ -20,7 +20,9 @@ export default {
     if(url.pathname==="/leadership/players" || url.pathname.startsWith("/leadership/players/")){
       const rewritten=new URL(request.url);
       rewritten.pathname=url.pathname.replace(/^\/leadership\/players/,"/players") || "/players";
-      return (accountLifecycle as any).fetch(new Request(rewritten.toString(),request),env,ctx);
+      const internalRequest=new Request(rewritten.toString(),request);
+      if(request.method==="POST") return (accountLifecycle as any).fetch(internalRequest,env,ctx);
+      return (runtime as any).fetch(internalRequest,env,ctx);
     }
     if(request.method==="GET" && (url.pathname==="/players" || url.pathname.startsWith("/players/"))){
       const target=new URL(request.url);
