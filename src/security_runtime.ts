@@ -9,11 +9,29 @@ export default {
   async fetch(request:Request,env:Env,ctx:ExecutionContext):Promise<Response>{
     const url=new URL(request.url);
 
+    // Account/login controls still use the proven account lifecycle implementation.
+    // Keep these actions explicit while the consolidated Players module absorbs
+    // the remaining account-management behaviour.
+    const accountAction=url.pathname.match(/^\/leadership\/players\/(\d+)\/(link-my-account|unlink-my-account|disable-login|enable-login)$/);
+    if(request.method==="POST" && accountAction){
+      const rewritten=new URL(request.url);
+      rewritten.pathname=`/players/${accountAction[1]}/${accountAction[2]}`;
+      const response=await (accountLifecycle as any).fetch(new Request(rewritten.toString(),request),env,ctx);
+      const location=response.headers.get("location");
+      if(location){
+        const target=new URL(location);
+        if(target.pathname.startsWith("/players")){
+          target.pathname=target.pathname.replace(/^\/players/,"/leadership/players") || "/leadership/players";
+          const headers=new Headers(response.headers);headers.set("location",target.toString());
+          return new Response(response.body,{status:response.status,statusText:response.statusText,headers});
+        }
+      }
+      return response;
+    }
+
     // The validated consolidated Players implementation currently lives behind
     // the preview adapter because that adapter also carries the finished Players
     // presentation (filters, import button, account badges and rank artwork).
-    // Route the canonical Leadership URL through it while the old wrappers remain
-    // available as a rollback point.
     if(url.pathname==="/leadership/players" || url.pathname.startsWith("/leadership/players/")){
       const previewUrl=new URL(request.url);
       previewUrl.pathname=url.pathname.replace(/^\/leadership\/players/,"/leadership/players-preview") || "/leadership/players-preview";
@@ -53,9 +71,6 @@ export default {
       return Response.redirect(target,302);
     }
 
-    // Keep legacy POST actions during the consolidation window. They remain a
-    // compatibility path for any old forms/bookmarks until the old wrappers are
-    // removed after the canonical route has been verified in production.
     if(request.method==="POST" && url.pathname.startsWith("/players/")){
       return (accountLifecycle as any).fetch(request,env,ctx);
     }
