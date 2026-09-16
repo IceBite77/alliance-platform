@@ -33,6 +33,7 @@ export type UiV2User={
   canManageBranding:boolean;
   canManageRanks:boolean;
   canManagePlayers:boolean;
+  canEditPlayers:boolean;
   canManageMembership:boolean;
   canManageProtectedRank:boolean;
   canApproveAccounts:boolean;
@@ -95,7 +96,7 @@ export async function loadUiV2Context(request:Request,env:UiV2Env):Promise<UiV2C
   const playerPermissions=["players.edit","players.manage_membership","players.approve_changes","accounts.approve"];
   const securityPermissions=["accounts.manage","permissions.manage"];
   const settingsPermissions=["settings.manage","settings.details","settings.branding","settings.discord","settings.ranks","settings.players"];
-  const [alliance,settingRows,player,isAdministrator,canManageBranding,canManageRanks,canManagePlayers,canManageMembership,canManageProtectedRank,canApproveAccounts,canManageSecurity,canViewAudit,canManageSettings,navigation]=await Promise.all([
+  const [alliance,settingRows,player,isAdministrator,canManageBranding,canManageRanks,canManagePlayers,canEditPlayers,canManageMembership,canManageProtectedRank,canApproveAccounts,canManageSecurity,canViewAudit,canManageSettings,navigation]=await Promise.all([
     env.DB.prepare("SELECT name,tag,server_number FROM alliance WHERE id=1").first<AllianceRow>(),
     env.DB.prepare("SELECT key,value FROM settings WHERE key LIKE 'theme_%' OR key IN ('platform_name','brand_main_logo','brand_favicon','footer_text','show_rank_names')").all<SettingRow>(),
     actor.player_id
@@ -105,6 +106,7 @@ export async function loadUiV2Context(request:Request,env:UiV2Env):Promise<UiV2C
     playerPermitted(env,actor,"settings.branding"),
     playerPermitted(env,actor,"settings.ranks"),
     anyPermitted(env,actor,playerPermissions),
+    playerPermitted(env,actor,"players.edit"),
     playerPermitted(env,actor,"players.manage_membership"),
     playerPermitted(env,actor,"players.manage_protected_rank"),
     playerPermitted(env,actor,"accounts.approve"),
@@ -145,6 +147,7 @@ export async function loadUiV2Context(request:Request,env:UiV2Env):Promise<UiV2C
       canManageBranding,
       canManageRanks,
       canManagePlayers,
+      canEditPlayers,
       canManageMembership,
       canManageProtectedRank,
       canApproveAccounts,

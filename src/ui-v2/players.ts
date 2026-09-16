@@ -47,7 +47,7 @@ function playerRows(players:PlayerRow[]){
     const pending=Boolean(player.account_id&&player.account_status==="pending");
     const loginText=linked?"Discord linked":disabled?"Account disabled":pending?"Waiting for access":"No Discord login";
     const loginClass=linked?" linked":disabled?" disabled":pending?" pending":"";
-    return `<a class="player-row" href="/players/${player.id}" style="--player-rank:${player.rank_colour||"#d7a83e"}" data-player-row data-state="${player.is_active?"active":"former"}" data-account="${linked?"linked":disabled?"disabled":pending?"pending":"unlinked"}" data-search="${esc(search)}"><div class="rank-mark">${rankArt}</div><div><div class="player-name">${esc(player.display_name)}</div><div class="player-meta">${esc(meta)}</div></div><div class="player-state"><span class="state-label ${player.is_active?"active":"former"}">${player.is_active?"Active member":"Former member"}</span><span class="login-state${loginClass}">${loginText}</span></div><span class="row-arrow">›</span></a>`;
+    return `<a class="player-row" href="/ui-v2/players/${player.id}" style="--player-rank:${player.rank_colour||"#d7a83e"}" data-player-row data-state="${player.is_active?"active":"former"}" data-account="${linked?"linked":disabled?"disabled":pending?"pending":"unlinked"}" data-search="${esc(search)}"><div class="rank-mark">${rankArt}</div><div><div class="player-name">${esc(player.display_name)}</div><div class="player-meta">${esc(meta)}</div></div><div class="player-state"><span class="state-label ${player.is_active?"active":"former"}">${player.is_active?"Active member":"Former member"}</span><span class="login-state${loginClass}">${loginText}</span></div><span class="row-arrow">›</span></a>`;
   }).join("");
 }
 
