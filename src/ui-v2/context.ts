@@ -18,6 +18,7 @@ export type UiV2Branding={
   favicon:string|null;
   accent:string;
   highlight:string;
+  rankHighlight:string;
   footerText:string;
   showRankNames:boolean;
 };
@@ -77,7 +78,7 @@ export async function loadUiV2Context(request:Request,env:UiV2Env):Promise<UiV2C
 
   const [alliance,settingRows,player,isAdministrator,navigation]=await Promise.all([
     env.DB.prepare("SELECT name,tag,server_number FROM alliance WHERE id=1").first<AllianceRow>(),
-    env.DB.prepare("SELECT key,value FROM settings WHERE key IN ('platform_name','brand_main_logo','brand_favicon','theme_accent','theme_icon','footer_text','show_rank_names')").all<SettingRow>(),
+    env.DB.prepare("SELECT key,value FROM settings WHERE key IN ('platform_name','brand_main_logo','brand_favicon','theme_accent','theme_icon','theme_rank','footer_text','show_rank_names')").all<SettingRow>(),
     actor.player_id
       ?env.DB.prepare("SELECT p.rank,r.display_name rank_name FROM players p LEFT JOIN alliance_ranks r ON r.rank_level=p.rank WHERE p.id=? LIMIT 1").bind(actor.player_id).first<PlayerRow>()
       :Promise.resolve(null),
@@ -102,6 +103,7 @@ export async function loadUiV2Context(request:Request,env:UiV2Env):Promise<UiV2C
       favicon:settings.brand_favicon||null,
       accent:validHex(settings.theme_accent)?settings.theme_accent:DEFAULT_ACCENT,
       highlight:validHex(settings.theme_icon)?settings.theme_icon:DEFAULT_HIGHLIGHT,
+      rankHighlight:validHex(settings.theme_rank)?settings.theme_rank:DEFAULT_HIGHLIGHT,
       footerText:settings.footer_text?.trim()||"",
       showRankNames
     },
