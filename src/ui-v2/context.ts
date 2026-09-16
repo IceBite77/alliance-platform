@@ -39,6 +39,7 @@ export type UiV2User={
 export type UiV2NavItem={
   label:string;
   href:string;
+  section:"Navigation"|"Management"|"Security"|"Settings";
   anyPermission?:string[];
 };
 
@@ -54,10 +55,16 @@ type SettingRow={key:string;value:string};
 type PlayerRow={rank:number|null;rank_name:string|null};
 
 const NAV_ITEMS:UiV2NavItem[]=[
-  {label:"Leadership Console",href:"/ui-v2"},
-  {label:"Players",href:"/leadership/players",anyPermission:["players.edit","players.manage_membership","players.approve_changes"]},
-  {label:"Security",href:"/ui-v2#security",anyPermission:["accounts.manage","permissions.manage","audit.view"]},
-  {label:"Settings",href:"/ui-v2#settings",anyPermission:["settings.manage","settings.details","settings.branding","settings.discord","settings.ranks","settings.players"]}
+  {label:"Leadership Console",href:"/ui-v2",section:"Navigation"},
+  {label:"Players",href:"/leadership/players",section:"Management",anyPermission:["players.edit","players.manage_membership","players.approve_changes"]},
+  {label:"Access & Permissions",href:"/leadership/security",section:"Security",anyPermission:["accounts.manage","permissions.manage"]},
+  {label:"Audit Log",href:"/leadership/audit",section:"Security",anyPermission:["audit.view"]},
+  {label:"Settings Home",href:"/leadership/settings",section:"Settings",anyPermission:["settings.manage","settings.details","settings.branding","settings.discord","settings.ranks","settings.players"]},
+  {label:"Alliance Details",href:"/leadership/settings/details",section:"Settings",anyPermission:["settings.manage","settings.details"]},
+  {label:"Branding",href:"/ui-v2/branding",section:"Settings",anyPermission:["settings.manage","settings.branding"]},
+  {label:"Discord",href:"/leadership/settings/discord",section:"Settings",anyPermission:["settings.manage","settings.discord"]},
+  {label:"Ranks",href:"/leadership/settings/ranks",section:"Settings",anyPermission:["settings.manage","settings.ranks"]},
+  {label:"Player Settings",href:"/leadership/settings/players",section:"Settings",anyPermission:["settings.manage","settings.players"]}
 ];
 
 const anyPermitted=async(env:UiV2Env,actor:PlayerActor,permissions:string[])=>{

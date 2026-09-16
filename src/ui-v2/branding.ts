@@ -121,7 +121,7 @@ function brandingScript(){
 function page(context:UiV2Context,source:Record<string,string>,message:string|null){
   const palette=resolveTheme(source),customs=[customTheme(source,1),customTheme(source,2)];
   const body=`${brandingCss}${message?`<div class="notice">${esc(message)}</div>`:""}${artworkSection(source,context)}${wordingForm(source,context)}<section class="branding-section"><div class="branding-section-head"><div><h2>Built-in themes</h2><p>Five safe starting points. Applying one changes colours only—never logos or wording.</p></div></div><div class="preset-grid">${presetCards()}</div></section><section class="branding-section"><div class="branding-section-head"><div><h2>Saved themes</h2><p>Two reusable palettes for seasonal or alternative looks.</p></div></div><div class="custom-grid">${customCards(customs)}</div></section><section class="branding-section"><div class="branding-section-head"><div><h2>Colour palette</h2><p>Every new UI page reads these same roles. Changes appear instantly in the preview.</p></div></div>${colourEditor(palette,customs,context)}</section>${brandingScript()}`;
-  return uiV2Html(renderUiV2Shell(context,{eyebrow:"Settings · Branding",title:"Branding",description:"Choose a coordinated theme, fine-tune individual colours, and save reusable palettes without redesigning each page.",body}));
+  return uiV2Html(renderUiV2Shell(context,{eyebrow:"Settings · Branding",title:"Branding",description:"Choose a coordinated theme, fine-tune individual colours, and save reusable palettes without redesigning each page.",body,activePath:"/ui-v2/branding"}));
 }
 
 async function handlePost(request:Request,env:UiV2Env,context:UiV2Context,source:Record<string,string>){
