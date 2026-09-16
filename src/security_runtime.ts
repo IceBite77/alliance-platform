@@ -7,6 +7,38 @@ import {playerActor,playerPermitted} from "./player_access";
 
 interface Env { DB:D1Database; ASSETS:R2Bucket; APP_URL:string; DISCORD_CLIENT_ID:string; DISCORD_CLIENT_SECRET:string; DISCORD_BOT_TOKEN:string; SETUP_KEY:string; AUTH_SECRET:string; }
 
+const settingsInternal=(path:string)=>{
+  if(path==="/leadership/settings")return "/settings/alliance";
+  if(path==="/leadership/settings/details")return "/settings/alliance/details";
+  if(path==="/leadership/settings/branding")return "/settings/alliance/branding";
+  if(path==="/leadership/settings/discord")return "/settings/discord";
+  if(path==="/leadership/settings/ranks")return "/settings/ranks";
+  if(path==="/leadership/settings/players")return "/settings/players";
+  return null;
+};
+const settingsCanonical=(path:string)=>{
+  if(path==="/settings/alliance"||path==="/leadership/settings/alliance")return "/leadership/settings";
+  if(path==="/settings/alliance/details"||path==="/leadership/settings/alliance/details")return "/leadership/settings/details";
+  if(path==="/settings/alliance/branding"||path==="/leadership/settings/alliance/branding")return "/leadership/settings/branding";
+  if(path==="/settings/discord")return "/leadership/settings/discord";
+  if(path==="/settings/ranks")return "/leadership/settings/ranks";
+  if(path==="/settings/players")return "/leadership/settings/players";
+  return null;
+};
+const rewriteSettingsHtml=(html:string)=>html
+  .replaceAll('href="/settings/alliance/details"','href="/leadership/settings/details"')
+  .replaceAll('action="/settings/alliance/details"','action="/leadership/settings/details"')
+  .replaceAll('href="/settings/alliance/branding"','href="/leadership/settings/branding"')
+  .replaceAll('action="/settings/alliance/branding"','action="/leadership/settings/branding"')
+  .replaceAll('href="/settings/alliance"','href="/leadership/settings"')
+  .replaceAll('action="/settings/alliance"','action="/leadership/settings"')
+  .replaceAll('href="/settings/discord"','href="/leadership/settings/discord"')
+  .replaceAll('action="/settings/discord"','action="/leadership/settings/discord"')
+  .replaceAll('href="/settings/ranks"','href="/leadership/settings/ranks"')
+  .replaceAll('action="/settings/ranks"','action="/leadership/settings/ranks"')
+  .replaceAll('href="/settings/players"','href="/leadership/settings/players"')
+  .replaceAll('action="/settings/players"','action="/leadership/settings/players"');
+
 export default {
   async fetch(request:Request,env:Env,ctx:ExecutionContext):Promise<Response>{
     const url=new URL(request.url);
@@ -42,23 +74,20 @@ export default {
     }
     if(request.method==="GET" && (url.pathname==="/security/access" || url.pathname==="/security-access"))return Response.redirect(new URL("/leadership/security",request.url),302);
 
-    // Alliance Settings is the Leadership settings hub. Keep old URLs only as
-    // compatibility aliases so the visible hierarchy stays under /leadership.
-    if(request.method==="GET" && url.pathname==="/settings/alliance")return Response.redirect(new URL("/leadership/settings",request.url),302);
-    if(request.method==="GET" && (url.pathname.startsWith("/settings/alliance/") || url.pathname==="/settings/ranks" || url.pathname.startsWith("/settings/discord"))){
-      const target=new URL(request.url);target.pathname=`/leadership${url.pathname}`;return Response.redirect(target,302);
-    }
-    if(url.pathname==="/leadership/settings" || url.pathname.startsWith("/leadership/settings/alliance/") || url.pathname==="/leadership/settings/ranks" || url.pathname.startsWith("/leadership/settings/discord")){
+    const legacySettings=settingsCanonical(url.pathname);
+    if(request.method==="GET"&&legacySettings&&url.pathname!==legacySettings){const target=new URL(request.url);target.pathname=legacySettings;return Response.redirect(target,302)}
+
+    const internalSettings=settingsInternal(url.pathname);
+    if(internalSettings){
       const actor=await playerActor(request,env);if(!actor)return Response.redirect(new URL("/login",request.url),302);
-      if(!actor.is_owner && !await playerPermitted(env,actor,"settings.manage"))return new Response("Forbidden",{status:403});
-      const rewritten=new URL(request.url);rewritten.pathname=url.pathname==="/leadership/settings"?"/settings/alliance":url.pathname.replace(/^\/leadership/,"");
+      if(!await playerPermitted(env,actor,"settings.manage"))return new Response("Forbidden",{status:403});
+      const rewritten=new URL(request.url);rewritten.pathname=internalSettings;
       const response=await (runtime as any).fetch(new Request(rewritten.toString(),request),env,ctx);
       const location=response.headers.get("location");
-      if(location){const target=new URL(location);if(target.pathname==="/settings/alliance")target.pathname="/leadership/settings";else if(target.pathname.startsWith("/settings/"))target.pathname=`/leadership${target.pathname}`;else return response;const headers=new Headers(response.headers);headers.set("location",target.toString());return new Response(response.body,{status:response.status,statusText:response.statusText,headers});}
-      if(response.headers.get("content-type")?.includes("text/html")){let body=await response.text();body=body.replaceAll('href="/settings/alliance"','href="/leadership/settings"').replaceAll('href="/settings/','href="/leadership/settings/').replaceAll('action="/settings/alliance"','action="/leadership/settings"').replaceAll('action="/settings/','action="/leadership/settings/');return new Response(body,{status:response.status,statusText:response.statusText,headers:response.headers});}
+      if(location){const target=new URL(location),canonical=settingsCanonical(target.pathname);if(canonical){target.pathname=canonical;const headers=new Headers(response.headers);headers.set("location",target.toString());return new Response(response.body,{status:response.status,statusText:response.statusText,headers});}}
+      if(response.headers.get("content-type")?.includes("text/html")){const body=rewriteSettingsHtml(await response.text());return new Response(body,{status:response.status,statusText:response.statusText,headers:response.headers});}
       return response;
     }
-    if(request.method==="GET" && url.pathname==="/leadership/settings/alliance")return Response.redirect(new URL("/leadership/settings",request.url),302);
 
     if(request.method==="GET" && (url.pathname==="/players" || url.pathname.startsWith("/players/"))){const target=new URL(request.url);target.pathname=url.pathname.replace(/^\/players/,"/leadership/players")||"/leadership/players";return Response.redirect(target,302);}
     if(request.method==="POST" && url.pathname.startsWith("/players/"))return (accountLifecycle as any).fetch(request,env,ctx);
