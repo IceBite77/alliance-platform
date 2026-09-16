@@ -38,6 +38,7 @@ const brandingCss = (alert:string) => `<style id="ap-branding-polish">
 @media(max-width:650px){
 .ap-home-menu{display:block;position:relative;margin-left:auto;order:4}.ap-home-menu button{width:42px;height:42px;margin:0;padding:10px;border:1px solid #34445f;border-radius:11px;background:#111b2e}.ap-home-menu button span{display:block;height:2px;background:#eef3ff;margin:4px 0;border-radius:2px}.ap-home-menu-panel{display:none;position:absolute;right:0;top:50px;width:230px;z-index:50;padding:10px;background:#111b2e;border:1px solid #34445f;border-radius:13px;box-shadow:0 18px 45px rgba(0,0,0,.45)}.ap-home-menu-panel.open{display:block}.ap-home-menu-panel a{display:block;padding:11px 12px;border-radius:8px;color:#eef3ff;text-decoration:none;font-weight:750}.ap-home-menu-panel a:hover{background:#1a2740}.ap-home-menu-panel .signout{margin-top:6px;padding-top:12px;border-top:1px solid #2b3850;color:#aebddd}
 .footer{display:flex!important;justify-content:space-between!important;align-items:center!important;gap:18px!important}.footer>a{margin-top:0!important;white-space:nowrap!important}
+.dashboardhero{position:relative!important}.dashboardhero>.ap-home-menu{position:absolute!important;right:0!important;top:0!important}
 }
 @media(prefers-reduced-motion:reduce){.playerattention{animation:none!important}}
 </style>`;
@@ -59,10 +60,14 @@ const polishBrandingPage = (html:string,alert:string) => {
   return html;
 };
 
+const compactMenu=`<div class="ap-home-menu"><button type="button" aria-label="Open menu" aria-expanded="false" onclick="const p=this.nextElementSibling,o=p.classList.toggle('open');this.setAttribute('aria-expanded',String(o))"><span></span><span></span><span></span></button><div class="ap-home-menu-panel"><a href="/">Alliance Home</a><a href="/leadership">Leadership Console</a><a href="/leadership/players">Players</a><a href="/leadership/security">Security &amp; Access</a><a class="signout" href="/auth/logout">Sign out</a></div></div>`;
 const polishMemberHome=(html:string)=>{
   if(!html.includes('class="leadership"') || !html.includes('href="/auth/logout"')) return html;
-  const menu=`<div class="ap-home-menu"><button type="button" aria-label="Open menu" aria-expanded="false" onclick="const p=this.nextElementSibling,o=p.classList.toggle('open');this.setAttribute('aria-expanded',String(o))"><span></span><span></span><span></span></button><div class="ap-home-menu-panel"><a href="/">Alliance Home</a><a href="/leadership">Leadership Console</a><a href="/leadership/players">Players</a><a href="/leadership/security">Security &amp; Access</a><a class="signout" href="/auth/logout">Sign out</a></div></div>`;
-  return html.replace('</header>',`${menu}</header>`);
+  return html.replace('</header>',`${compactMenu}</header>`);
+};
+const polishLeadershipConsole=(html:string)=>{
+  if(!html.includes('class="dashboardhero"')||html.includes('class="ap-home-menu"'))return html;
+  return html.replace('<div class="dashboardhero">',`<div class="dashboardhero">${compactMenu}`);
 };
 
 export default {
@@ -96,10 +101,10 @@ export default {
     if(request.method==="GET" && url.pathname==="/leadership"){
       const allianceName=await getAllianceName(env);
       html=html.replace(/Development environment/gi,allianceName);
+      html=polishLeadershipConsole(html);
     }
     html=html.replaceAll('href="/security/access"','href="/leadership/security"');
     html=html.replaceAll('href="/players"','href="/leadership/players"');
-    if(url.pathname==="/leadership/security") html=html.replace("</head>",`<style>.adminidentitynav{align-self:center!important;justify-content:center!important}.adminidentitynav .signedinidentity{line-height:1.2!important}</style></head>`);
     const headers = new Headers(response.headers);
     headers.delete("content-length");
     return new Response(html.replace("</head>", `${brandingCss(alert)}</head>`), {
