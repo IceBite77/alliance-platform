@@ -96,7 +96,7 @@ export async function loadUiV2Context(request:Request,env:UiV2Env):Promise<UiV2C
   return {
     alliance:{name:alliance.name,tag:alliance.tag,serverNumber:alliance.server_number},
     branding:{
-      platformName:settings.platform_name?.trim()||"The Alliance Management Platform",
+      platformName:settings.platform_name?.trim()||"The Pond",
       mainLogo:settings.brand_main_logo||null,
       favicon:settings.brand_favicon||null,
       palette,

@@ -57,7 +57,7 @@ const shellStyles = `
 `;
 
 const brandedLogin = (a:AllianceRow,s:Record<string,string>,message?:string,status=200) => {
-  const platform=s.platform_name?.trim()||"The Alliance Management Platform";
+  const platform=s.platform_name?.trim()||"The Pond";
   const title=s.login_title?.trim()||`Welcome to ${a.name}`;
   const logo=s.brand_login_logo||s.brand_main_logo;
   const footer=s.footer_text?.trim()||`${a.name} · ${identity(a)}`;
@@ -70,7 +70,7 @@ const brandingPage = (a:AllianceRow,s:Record<string,string>,message?:string) => 
   const t=theme(s);
   const preview=(key:string,fallback:string)=>s[key]?`<img src="${assetUrl(s[key])}" alt="Branding preview">`:`<div class="brandmark">${esc(fallback)}</div>`;
   const upload=(field:string,label:string,guide:string,current?:string,accept="image/png,image/jpeg,image/webp")=>`<form class="branding-upload" method="post" action="/settings/alliance/branding" enctype="multipart/form-data"><input type="hidden" name="slot" value="${field}"><div class="imageguide"><strong>Image guide</strong><span>${guide}</span><span>Maximum 5 MB · Larger artwork is safely contained and will not change the layout.</span></div><label>${label}</label><input name="asset" type="file" accept="${accept}" required><button>Upload / replace</button>${current?`<div class="uploadstatus">Image stored ✓</div>`:""}</form>${current?`<form method="post" action="/settings/alliance/branding" onsubmit="return confirm('Remove this image?');"><input type="hidden" name="slot" value="remove"><input type="hidden" name="asset_slot" value="${field}"><button class="removeasset" type="submit">Remove</button></form>`:""}`;
-  const platform=s.platform_name||"The Alliance Management Platform";
+  const platform=s.platform_name||"The Pond";
   const loginTitle=s.login_title||`Welcome to ${a.name}`;
   const footer=s.footer_text||`${a.name} · ${identity(a)}`;
   const presetOptions=Object.entries(PRESETS).map(([k,v])=>`<option value="${k}"${t.preset===k?" selected":""}>${v.name}</option>`).join("");
