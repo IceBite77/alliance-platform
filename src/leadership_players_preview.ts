@@ -8,11 +8,6 @@ const LIVE="/leadership/players";
 
 const rewriteForCurrentUi=(request:Request)=>{const url=new URL(request.url);url.pathname=url.pathname.replace(PREVIEW,"/players");return new Request(url.toString(),request)};
 
-// The proven Players presentation still contains several old owner-only session
-// predicates deep in its decorator chain. Leadership access is now checked once
-// here. This compatibility DB view removes only those obsolete owner predicates,
-// so Owner and Administrator run through the exact same Players UI while the old
-// decorators are retired safely rather than maintaining two different pages.
 const leadershipUiEnv=(env:Env)=>{
   const db=new Proxy(env.DB as any,{
     get(target,prop,receiver){
@@ -39,8 +34,8 @@ const masterHeaderCss=`<style id="players-leadership-master-header">
   .adminbrand .adminidentitynav{gap:5px!important;min-width:245px!important}
   .adminbrand .signedinidentity{font-size:0!important;line-height:1!important;color:#eef3ff!important;font-weight:900!important}
   .adminbrand .signedinidentity::before{content:'Welcome ' attr(data-player);display:block;font-size:1.22rem!important;line-height:1.15!important;color:#eef3ff!important;font-weight:900!important}
-  .adminbrand .signedinidentity::after{content:attr(data-rank);display:block;margin-top:7px;font-size:.78rem!important;line-height:1.2!important;color:#90a0bb!important;font-weight:800!important}
-  .adminbrand .crumb{margin-top:11px!important}
+  .adminbrand .signedinidentity::after{content:attr(data-rank);display:block;margin-top:8px;font-size:1rem!important;line-height:1.2!important;color:var(--ap-accent,#d7a83e)!important;font-weight:900!important;letter-spacing:.01em!important}
+  .adminbrand .crumb{margin-top:12px!important}
   .adminbrand .crumb a{display:inline-flex!important;align-items:center!important;gap:8px!important;padding:9px 13px!important;border:1px solid #34445f!important;border-radius:10px!important;background:#111b2e!important;color:#b9c8e5!important;font-size:.82rem!important;font-weight:850!important;text-decoration:none!important;transition:border-color .15s ease,background .15s ease,transform .15s ease!important}
   .adminbrand .crumb a:hover{border-color:#526b94!important;background:#17243a!important;transform:translateY(-1px)!important;color:#eef3ff!important}
 }
