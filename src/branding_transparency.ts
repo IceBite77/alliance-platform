@@ -105,6 +105,7 @@ export default {
     }
     html=html.replaceAll('href="/security/access"','href="/leadership/security"');
     html=html.replaceAll('href="/players"','href="/leadership/players"');
+    html=html.replaceAll('href="/audit"','href="/leadership/audit"');
     const headers = new Headers(response.headers);
     headers.delete("content-length");
     return new Response(html.replace("</head>", `${brandingCss(alert)}</head>`), {
