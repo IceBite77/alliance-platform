@@ -16,10 +16,12 @@ const rewriteForCurrentUi=(request:Request)=>{const url=new URL(request.url);url
 const leadershipUiEnv=(env:Env)=>{
   const db=new Proxy(env.DB as any,{
     get(target,prop,receiver){
-      if(prop==="prepare")return (sql:string)=>target.prepare(String(sql)
-        .replaceAll(" AND a.is_owner=1 LIMIT 1"," LIMIT 1")
-        .replaceAll(" AND a.is_owner = 1 LIMIT 1"," LIMIT 1")
-        .replaceAll(" AND a.is_owner=1","");
+      if(prop==="prepare")return (sql:string)=>target.prepare(
+        String(sql)
+          .replaceAll(" AND a.is_owner=1 LIMIT 1"," LIMIT 1")
+          .replaceAll(" AND a.is_owner = 1 LIMIT 1"," LIMIT 1")
+          .replaceAll(" AND a.is_owner=1","")
+      );
       const value=Reflect.get(target,prop,receiver);return typeof value==="function"?value.bind(target):value;
     }
   });
