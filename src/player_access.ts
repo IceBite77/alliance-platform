@@ -38,8 +38,26 @@ export const playerActor=async(request:Request,env:PlayerAccessEnv)=>{
   `).bind(await hash(token)).first<PlayerActor>();
 };
 
+export const playerIsAdministrator=async(env:PlayerAccessEnv,actor:PlayerActor)=>{
+  if(actor.is_owner)return true;
+  const row=await env.DB.prepare(`
+    SELECT 1 ok
+    FROM account_groups ag
+    JOIN permission_groups g ON g.id=ag.group_id
+    WHERE ag.account_id=? AND g.public_id='group-administrators'
+    LIMIT 1
+  `).bind(actor.id).first<{ok:number}>();
+  return Boolean(row?.ok);
+};
+
 export const playerPermitted=async(env:PlayerAccessEnv,actor:PlayerActor,key:string)=>{
   if(actor.is_owner)return true;
+
+  // Administrator is the top-level platform role. Administrators see and manage
+  // the same Leadership system as the Owner. Ownership itself is the one
+  // distinction and is only needed for ownership transfer/protection actions.
+  if(await playerIsAdministrator(env,actor))return key!=="system.transfer_owner";
+
   const row=await env.DB.prepare(`
     SELECT CASE
       WHEN EXISTS(
