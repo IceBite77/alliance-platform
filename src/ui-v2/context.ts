@@ -30,6 +30,10 @@ export type UiV2User={
   isOwner:boolean;
   isAdministrator:boolean;
   canManageBranding:boolean;
+  canManagePlayers:boolean;
+  canManageSecurity:boolean;
+  canViewAudit:boolean;
+  canManageSettings:boolean;
 };
 
 export type UiV2NavItem={
@@ -50,12 +54,16 @@ type SettingRow={key:string;value:string};
 type PlayerRow={rank:number|null;rank_name:string|null};
 
 const NAV_ITEMS:UiV2NavItem[]=[
-  {label:"Leadership Console",href:"/leadership"},
+  {label:"Leadership Console",href:"/ui-v2"},
   {label:"Players",href:"/leadership/players",anyPermission:["players.edit","players.manage_membership","players.approve_changes"]},
-  {label:"Security",href:"/leadership/security",anyPermission:["accounts.manage","permissions.manage"]},
-  {label:"Audit Log",href:"/leadership/audit",anyPermission:["audit.view"]},
-  {label:"Settings",href:"/leadership/settings",anyPermission:["settings.manage","settings.details","settings.branding","settings.discord","settings.ranks","settings.players"]}
+  {label:"Security",href:"/ui-v2#security",anyPermission:["accounts.manage","permissions.manage","audit.view"]},
+  {label:"Settings",href:"/ui-v2#settings",anyPermission:["settings.manage","settings.details","settings.branding","settings.discord","settings.ranks","settings.players"]}
 ];
+
+const anyPermitted=async(env:UiV2Env,actor:PlayerActor,permissions:string[])=>{
+  for(const permission of permissions)if(await playerPermitted(env,actor,permission))return true;
+  return false;
+};
 
 async function permittedNavigation(env:UiV2Env,actor:PlayerActor){
   const visible:UiV2NavItem[]=[];
@@ -72,7 +80,10 @@ export async function loadUiV2Context(request:Request,env:UiV2Env):Promise<UiV2C
   const actor=await playerActor(request,env);
   if(!actor)return null;
 
-  const [alliance,settingRows,player,isAdministrator,canManageBranding,navigation]=await Promise.all([
+  const playerPermissions=["players.edit","players.manage_membership","players.approve_changes"];
+  const securityPermissions=["accounts.manage","permissions.manage"];
+  const settingsPermissions=["settings.manage","settings.details","settings.branding","settings.discord","settings.ranks","settings.players"];
+  const [alliance,settingRows,player,isAdministrator,canManageBranding,canManagePlayers,canManageSecurity,canViewAudit,canManageSettings,navigation]=await Promise.all([
     env.DB.prepare("SELECT name,tag,server_number FROM alliance WHERE id=1").first<AllianceRow>(),
     env.DB.prepare("SELECT key,value FROM settings WHERE key LIKE 'theme_%' OR key IN ('platform_name','brand_main_logo','brand_favicon','footer_text','show_rank_names')").all<SettingRow>(),
     actor.player_id
@@ -80,6 +91,10 @@ export async function loadUiV2Context(request:Request,env:UiV2Env):Promise<UiV2C
       :Promise.resolve(null),
     playerIsAdministrator(env,actor),
     playerPermitted(env,actor,"settings.branding"),
+    anyPermitted(env,actor,playerPermissions),
+    anyPermitted(env,actor,securityPermissions),
+    playerPermitted(env,actor,"audit.view"),
+    anyPermitted(env,actor,settingsPermissions),
     permittedNavigation(env,actor)
   ]);
 
@@ -110,7 +125,11 @@ export async function loadUiV2Context(request:Request,env:UiV2Env):Promise<UiV2C
       rankName,
       isOwner:Boolean(actor.is_owner),
       isAdministrator,
-      canManageBranding
+      canManageBranding,
+      canManagePlayers,
+      canManageSecurity,
+      canViewAudit,
+      canManageSettings
     },
     navigation
   };
