@@ -1,5 +1,6 @@
 import runtime from "./runtime";
 import securityDashboard from "./security_groups";
+import securityGroupPage from "./security_group_page";
 import accountLifecycle from "./account_lifecycle";
 import playersPreview from "./leadership_players_preview";
 
@@ -29,6 +30,7 @@ export default {
 
     if(url.pathname==="/leadership/players-preview" || url.pathname.startsWith("/leadership/players-preview/"))return (playersPreview as any).fetch(request,env,ctx);
 
+    if(/^\/leadership\/security\/groups\/\d+(?:\/save)?$/.test(url.pathname))return (securityGroupPage as any).fetch(request,env,ctx);
     if(request.method==="GET" && url.pathname==="/leadership/security"){
       const rewritten=new URL(request.url);rewritten.pathname="/security/access";
       return (securityDashboard as any).fetch(new Request(rewritten.toString(),request),env,ctx);
