@@ -1,5 +1,5 @@
 import runtime from "./runtime";
-import securityDashboard from "./security_groups_ui";
+import securityDashboard from "./security_groups";
 import accountLifecycle from "./account_lifecycle";
 import playersPreview from "./leadership_players_preview";
 
@@ -29,13 +29,14 @@ export default {
 
     if(url.pathname==="/leadership/players-preview" || url.pathname.startsWith("/leadership/players-preview/"))return (playersPreview as any).fetch(request,env,ctx);
 
-    const groupPage=url.pathname.match(/^\/leadership\/security\/groups\/\d+$/);
-    if(request.method==="GET" && groupPage)return (securityDashboard as any).fetch(request,env,ctx);
     if(request.method==="GET" && url.pathname==="/leadership/security"){
       const rewritten=new URL(request.url);rewritten.pathname="/security/access";
       return (securityDashboard as any).fetch(new Request(rewritten.toString(),request),env,ctx);
     }
-    if(request.method==="POST" && url.pathname.startsWith("/leadership/security/"))return (securityDashboard as any).fetch(request,env,ctx);
+    if(request.method==="POST" && url.pathname.startsWith("/leadership/security/")){
+      const rewritten=new URL(request.url);rewritten.pathname=url.pathname.replace(/^\/leadership\/security/,"/security/access");
+      return (securityDashboard as any).fetch(new Request(rewritten.toString(),request),env,ctx);
+    }
     if(request.method==="GET" && (url.pathname==="/security/access" || url.pathname==="/security-access"))return Response.redirect(new URL("/leadership/security",request.url),302);
 
     if(request.method==="GET" && (url.pathname==="/players" || url.pathname.startsWith("/players/"))){const target=new URL(request.url);target.pathname=url.pathname.replace(/^\/players/,"/leadership/players")||"/leadership/players";return Response.redirect(target,302);}
