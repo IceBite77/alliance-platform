@@ -44,16 +44,25 @@ const hasLeadershipAccess=async(env:Env,actor:{id:number;is_owner:number})=>{
 };
 
 const withHtml=(res:Response,html:string)=>{const headers=new Headers(res.headers);headers.delete("content-length");return new Response(html,{status:res.status,statusText:res.statusText,headers})};
+const canonicalLeadershipLinks=(html:string)=>html
+  .replaceAll('href="/audit"','href="/leadership/audit"')
+  .replaceAll("href='/audit'","href='/leadership/audit'");
 
 export default {async fetch(request:Request,env:Env,ctx:ExecutionContext):Promise<Response>{
   const url=new URL(request.url),actor=await playerActor(request,env).catch(()=>null);
   const leadership=actor?await hasLeadershipAccess(env,actor):false;
 
+  if(request.method==="GET"&&url.pathname==="/audit"){
+    const target=new URL(request.url);target.pathname="/leadership/audit";return Response.redirect(target,302);
+  }
+
   if(request.method==="GET"&&url.pathname==="/leadership"){
     if(!actor)return Response.redirect(new URL("/login",request.url),302);
     if(!leadership)return new Response("Forbidden",{status:403});
     const rewritten=new URL(request.url);rewritten.pathname="/";
-    return (leadershipApp as any).fetch(new Request(rewritten.toString(),request),env,ctx);
+    const response=await (leadershipApp as any).fetch(new Request(rewritten.toString(),request),env,ctx);
+    if(response instanceof Response&&response.status===200&&response.headers.get("content-type")?.includes("text/html"))return withHtml(response,canonicalLeadershipLinks(await response.text()));
+    return response;
   }
 
   const response=await (runtime as any).fetch(request,env,ctx);
