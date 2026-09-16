@@ -1,4 +1,4 @@
-import app from "./player_account_link";
+import app from "./security_dashboard";
 
 interface Env { DB:D1Database; ASSETS:R2Bucket; APP_URL:string; DISCORD_CLIENT_ID:string; DISCORD_CLIENT_SECRET:string; DISCORD_BOT_TOKEN:string; SETUP_KEY:string; AUTH_SECRET:string; }
 type Actor={id:number;display_name:string;is_owner:number};
