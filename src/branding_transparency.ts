@@ -9,6 +9,10 @@ const getAlertColour = async (env:Env) => {
   const row = await env.DB.prepare("SELECT value FROM settings WHERE key='theme_player_alert' LIMIT 1").first<{value:string}>().catch(()=>null);
   return validHex(row?.value||"") ? row!.value : DEFAULT_ALERT;
 };
+const getAllianceName = async (env:Env) => {
+  const row=await env.DB.prepare("SELECT name FROM alliance WHERE id=1 LIMIT 1").first<{name:string}>().catch(()=>null);
+  return row?.name?.trim()||"Alliance";
+};
 
 const saveAlertColour = async (env:Env,value:string) => {
   await env.DB.prepare("INSERT INTO settings (key,value,updated_at) VALUES ('theme_player_alert',?,CURRENT_TIMESTAMP) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=CURRENT_TIMESTAMP").bind(value).run();
@@ -30,6 +34,11 @@ const brandingCss = (alert:string) => `<style id="ap-branding-polish">
 .playerattention .navicon{color:var(--ap-player-alert)!important}
 .playerattention .attentionbadge{border-color:color-mix(in srgb,var(--ap-player-alert) 58%,transparent)!important;background:color-mix(in srgb,var(--ap-player-alert) 16%,transparent)!important;color:color-mix(in srgb,var(--ap-player-alert) 72%,white)!important}
 .playerattention .navarrow{color:color-mix(in srgb,var(--ap-player-alert) 72%,white)!important}
+.ap-home-menu{display:none}
+@media(max-width:650px){
+.ap-home-menu{display:block;position:relative;margin-left:auto;order:4}.ap-home-menu button{width:42px;height:42px;margin:0;padding:10px;border:1px solid #34445f;border-radius:11px;background:#111b2e}.ap-home-menu button span{display:block;height:2px;background:#eef3ff;margin:4px 0;border-radius:2px}.ap-home-menu-panel{display:none;position:absolute;right:0;top:50px;width:230px;z-index:50;padding:10px;background:#111b2e;border:1px solid #34445f;border-radius:13px;box-shadow:0 18px 45px rgba(0,0,0,.45)}.ap-home-menu-panel.open{display:block}.ap-home-menu-panel a{display:block;padding:11px 12px;border-radius:8px;color:#eef3ff;text-decoration:none;font-weight:750}.ap-home-menu-panel a:hover{background:#1a2740}.ap-home-menu-panel .signout{margin-top:6px;padding-top:12px;border-top:1px solid #2b3850;color:#aebddd}
+.footer{display:flex!important;justify-content:space-between!important;align-items:center!important;gap:18px!important}.footer>a{margin-top:0!important;white-space:nowrap!important}
+}
 @media(prefers-reduced-motion:reduce){.playerattention{animation:none!important}}
 </style>`;
 
@@ -48,6 +57,12 @@ const polishBrandingPage = (html:string,alert:string) => {
   html = html.replace("</head>",`<style>.themegrid{grid-template-columns:repeat(4,minmax(0,1fr))}.previewalert{padding:9px 12px;border:2px solid var(--ap-player-alert);border-radius:9px;color:color-mix(in srgb,var(--ap-player-alert) 72%,white);font-size:.78rem;font-weight:900}@media(max-width:900px){.themegrid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:650px){.themegrid{grid-template-columns:1fr}}</style></head>`);
   html = html.replace("</body>",`<script>(()=>{const a=document.getElementById('theme-player-alert');if(!a)return;const apply=()=>document.documentElement.style.setProperty('--ap-player-alert',a.value);a.addEventListener('input',apply);apply()})();</script></body>`);
   return html;
+};
+
+const polishMemberHome=(html:string)=>{
+  if(!html.includes('class="leadership"') || !html.includes('href="/auth/logout"')) return html;
+  const menu=`<div class="ap-home-menu"><button type="button" aria-label="Open menu" aria-expanded="false" onclick="const p=this.nextElementSibling,o=p.classList.toggle('open');this.setAttribute('aria-expanded',String(o))"><span></span><span></span><span></span></button><div class="ap-home-menu-panel"><a href="/">Alliance Home</a><a href="/leadership">Leadership Console</a><a href="/leadership/players">Players</a><a href="/leadership/security">Security &amp; Access</a><a class="signout" href="/auth/logout">Sign out</a></div></div>`;
+  return html.replace('</header>',`${menu}</header>`);
 };
 
 export default {
@@ -77,15 +92,14 @@ export default {
     if (!html.includes("</head>")) return response;
     const alert=await getAlertColour(env);
     if(request.method==="GET" && url.pathname==="/settings/alliance/branding") html=polishBrandingPage(html,alert);
-
-    // Canonical Leadership navigation. Keep legacy action endpoints internal, but every
-    // user-facing navigation link stays beneath /leadership so desktop, iPad and mobile
-    // menus all point at the same public routes.
+    if(request.method==="GET" && url.pathname==="/") html=polishMemberHome(html);
+    if(request.method==="GET" && url.pathname==="/leadership"){
+      const allianceName=await getAllianceName(env);
+      html=html.replace(/Development environment/gi,allianceName);
+    }
     html=html.replaceAll('href="/security/access"','href="/leadership/security"');
-    html=html.replaceAll('href="/security-access"','href="/leadership/security"');
     html=html.replaceAll('href="/players"','href="/leadership/players"');
-    html=html.replace("Access groups, rank rules, administrators and protected permissions.","Access groups, administrators and protected permissions.");
-
+    if(url.pathname==="/leadership/security") html=html.replace("</head>",`<style>.adminidentitynav{align-self:center!important;justify-content:center!important}.adminidentitynav .signedinidentity{line-height:1.2!important}</style></head>`);
     const headers = new Headers(response.headers);
     headers.delete("content-length");
     return new Response(html.replace("</head>", `${brandingCss(alert)}</head>`), {
