@@ -1,6 +1,7 @@
 export interface PlayerAccessEnv { DB:D1Database; APP_URL:string }
 
 export type PlayerActor={id:number;display_name:string;is_owner:number;player_id:number|null;provider_username:string|null};
+type PermissionActor={id:number;is_owner:number};
 
 const SESSION_COOKIE="ap_session";
 
@@ -39,7 +40,7 @@ export const playerActor=async(request:Request,env:PlayerAccessEnv)=>{
   `).bind(await hash(token)).first<PlayerActor>();
 };
 
-export const playerIsAdministrator=async(env:PlayerAccessEnv,actor:PlayerActor)=>{
+export const playerIsAdministrator=async(env:PlayerAccessEnv,actor:PermissionActor)=>{
   if(actor.is_owner)return true;
   const row=await env.DB.prepare(`
     SELECT 1 ok
@@ -51,7 +52,7 @@ export const playerIsAdministrator=async(env:PlayerAccessEnv,actor:PlayerActor)=
   return Boolean(row?.ok);
 };
 
-export const playerPermitted=async(env:PlayerAccessEnv,actor:PlayerActor,key:string)=>{
+export const playerPermitted=async(env:PlayerAccessEnv,actor:PermissionActor,key:string)=>{
   if(actor.is_owner)return true;
 
   // Administrator is the top-level platform role. Administrators see and manage

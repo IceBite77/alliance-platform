@@ -1,7 +1,10 @@
 import app from "./branding_transparency";
+import {handleUiV2} from "./ui-v2/handler";
 
 interface Env {
   DB: D1Database;
+  ASSETS: R2Bucket;
+  APP_URL: string;
   LICENSING_URL?: string;
   PLATFORM_VERSION?: string;
   SETUP_KEY: string;
@@ -21,22 +24,24 @@ function ownerPage(){return page("Create Installation Owner",`<div class="step">
 
 async function activate(r:Request,e:Env,row:ActivationRow){const f=await r.formData(),key=String(f.get("installation_key")??"").trim().toUpperCase();if(!/^ICE-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/.test(key))return activationPage(row.installation_id,"That doesn't look like a valid ICE installation key.");const base=licensing(e);if(!base)return activationPage(row.installation_id,"ICE Licensing has not been configured for this installation.");try{const res=await fetch(`${base}/api/v1/activate`,{method:"POST",headers:{"content-type":"application/json","accept":"application/json"},body:JSON.stringify({installation_key:key,installation_id:row.installation_id,platform_version:String(e.PLATFORM_VERSION||"development")})});const data:any=await res.json().catch(()=>null);if(!res.ok||data?.status!=="active"){const message=data?.error==="invalid_installation_key"?"That installation key is not valid.":data?.error==="key_already_in_use"?"That installation key is already assigned to another installation.":data?.status==="revoked"?"That installation key has been revoked.":"ICE Licensing could not activate this installation.";return activationPage(row.installation_id,message)}const checked=String(data.checked_at||new Date().toISOString());await e.DB.prepare("UPDATE installation_activation SET status='active',activated_at=COALESCE(activated_at,?),last_verified_at=?,activation_service=?,updated_at=CURRENT_TIMESTAMP WHERE id=1").bind(checked,checked,base).run();return Response.redirect(new URL("/setup",r.url),303)}catch(err){console.error("ICE activation failed",err);return activationPage(row.installation_id,"ICE Licensing is temporarily unavailable. Please try again.")}}
 
-async function ownerStart(r:Request,e:Env){const f=new FormData();f.set("setup_key",e.SETUP_KEY);const headers=new Headers(r.headers);headers.delete("content-length");headers.set("content-type","application/x-www-form-urlencoded");const body=new URLSearchParams({setup_key:e.SETUP_KEY});return app.fetch(new Request(r.url,{method:"POST",headers,body,redirect:r.redirect}),e as any)}
+async function ownerStart(r:Request,e:Env,ctx:ExecutionContext){const f=new FormData();f.set("setup_key",e.SETUP_KEY);const headers=new Headers(r.headers);headers.delete("content-length");headers.set("content-type","application/x-www-form-urlencoded");const body=new URLSearchParams({setup_key:e.SETUP_KEY});return app.fetch(new Request(r.url,{method:"POST",headers,body,redirect:r.redirect}),e as any,ctx)}
 
-export default {async fetch(r:Request,e:Env){const u=new URL(r.url),row=await activation(e);
+export default {async fetch(r:Request,e:Env,ctx:ExecutionContext){const u=new URL(r.url),row=await activation(e);
   // Databases created before migration 0016 continue normally until the migration is applied.
-  if(!row)return app.fetch(r,e as any);
+  if(!row)return app.fetch(r,e as any,ctx);
   if(row.status!=="active"){
     if(r.method==="GET"&&u.pathname==="/setup")return activationPage(row.installation_id);
     if(r.method==="POST"&&u.pathname==="/setup/activate")return activate(r,e,row);
     if(u.pathname.startsWith("/setup")||u.pathname.startsWith("/auth/discord"))return Response.redirect(new URL("/setup",r.url),302);
-    return app.fetch(r,e as any);
+    return app.fetch(r,e as any,ctx);
   }
   if(r.method==="GET"&&u.pathname==="/setup"){
     // Existing installations with an Owner are allowed through to the normal app redirect.
     const owner=await e.DB.prepare("SELECT id FROM accounts WHERE is_owner=1 LIMIT 1").first();
-    return owner?app.fetch(r,e as any):ownerPage();
+    return owner?app.fetch(r,e as any,ctx):ownerPage();
   }
-  if(r.method==="POST"&&u.pathname==="/setup/discord/start")return ownerStart(r,e);
-  return app.fetch(r,e as any);
+  if(r.method==="POST"&&u.pathname==="/setup/discord/start")return ownerStart(r,e,ctx);
+  const uiV2=await handleUiV2(r,e);
+  if(uiV2)return uiV2;
+  return app.fetch(r,e as any,ctx);
 }} satisfies ExportedHandler<Env>;
