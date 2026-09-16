@@ -1,6 +1,6 @@
 export interface PlayerAccessEnv { DB:D1Database; APP_URL:string }
 
-export type PlayerActor={id:number;display_name:string;is_owner:number};
+export type PlayerActor={id:number;display_name:string;is_owner:number;player_id:number|null;provider_username:string|null};
 
 const SESSION_COOKIE="ap_session";
 
@@ -24,10 +24,11 @@ export const playerActor=async(request:Request,env:PlayerAccessEnv)=>{
   const token=cookie(request,SESSION_COOKIE);
   if(!token)return null;
   return await env.DB.prepare(`
-    SELECT a.id,a.display_name,a.is_owner
+    SELECT a.id,a.display_name,a.is_owner,a.player_id,i.provider_username
     FROM sessions s
     JOIN accounts a ON a.id=s.account_id
     LEFT JOIN players p ON p.id=a.player_id
+    LEFT JOIN account_identities i ON i.account_id=a.id AND i.provider='discord'
     WHERE s.token_hash=?
       AND s.revoked_at IS NULL
       AND s.expires_at>CURRENT_TIMESTAMP
