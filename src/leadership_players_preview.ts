@@ -29,10 +29,10 @@ export default {async fetch(request:Request,env:Env,ctx?:ExecutionContext):Promi
   const disconnect=path.match(/^\/leadership\/players-preview\/(\d+)\/disconnect-discord$/);
   if(request.method==="POST"&&disconnect){const result=await disconnectPlayerLogin(request,env,actor,Number(disconnect[1]));if(result)return result;return playerRedirect(`${PREVIEW}/${Number(disconnect[1])}?discord=disconnected`,request)}
 
-  // The existing Players page is the visual contract. While the clean handler is
-  // being assembled, GET pages use that proven presentation chain verbatim so
-  // search, filters, import, account badges, navigation and responsive behaviour
-  // cannot silently disappear during the refactor.
-  if(request.method==="GET")return rewriteResponse(await (currentUi as any).fetch(rewriteForCurrentUi(request),env,ctx));
+  // Owner keeps the proven legacy presentation while the clean Players handler is
+  // completed. Non-owner leadership accounts must not pass through the old
+  // owner-era wrapper chain because it incorrectly treats their valid session as
+  // unauthorised and sends them back to Discord login.
+  if(request.method==="GET"&&actor.is_owner)return rewriteResponse(await (currentUi as any).fetch(rewriteForCurrentUi(request),env,ctx));
   return rewriteResponse(await (players as any).fetch(rewriteForNew(request),env));
 }} satisfies ExportedHandler<Env>;
