@@ -14,8 +14,10 @@ const redirect=(u:string,r:Request)=>Response.redirect(new URL(u,r.url),302);
 const linkedAccount=async(e:Env,playerId:number)=>e.DB.prepare(`SELECT a.id,a.display_name,a.is_owner,i.provider_username FROM accounts a LEFT JOIN account_identities i ON i.account_id=a.id AND i.provider='discord' WHERE a.player_id=? LIMIT 1`).bind(playerId).first<Linked>();
 const removeLogin=async(e:Env,a:Actor,playerId:number,linked:Linked,reason:string)=>{
   const discord=linked.provider_username||linked.display_name;
+  const groups=(await e.DB.prepare("SELECT group_id FROM account_groups WHERE account_id=?").bind(linked.id).all<{group_id:number}>()).results?.map(x=>x.group_id)??[];
   const revoked=await e.DB.prepare("UPDATE sessions SET revoked_at=CURRENT_TIMESTAMP WHERE account_id=? AND revoked_at IS NULL").bind(linked.id).run();
-  await e.DB.prepare(`INSERT INTO audit_log (public_id,actor_account_id,actor_display_name,action,entity_type,entity_id,subject_player_id,source,old_values,new_values,metadata) VALUES (?,?,?,?,?,?,?,?,?,?,?)`).bind(crypto.randomUUID(),a.id,a.display_name,"account.discord_disconnected","account",String(linked.id),playerId,"web",JSON.stringify({player_id:playerId,discord}),JSON.stringify({discord:null,account_removed:true}),JSON.stringify({reason,sessions_revoked:Number(revoked.meta?.changes??0),player_preserved:true,login_account_removed:true})).run();
+  await e.DB.prepare("DELETE FROM account_groups WHERE account_id=?").bind(linked.id).run();
+  await e.DB.prepare(`INSERT INTO audit_log (public_id,actor_account_id,actor_display_name,action,entity_type,entity_id,subject_player_id,source,old_values,new_values,metadata) VALUES (?,?,?,?,?,?,?,?,?,?,?)`).bind(crypto.randomUUID(),a.id,a.display_name,"account.discord_disconnected","account",String(linked.id),playerId,"web",JSON.stringify({player_id:playerId,discord,group_ids:groups}),JSON.stringify({discord:null,account_removed:true,group_ids:[]}),JSON.stringify({reason,sessions_revoked:Number(revoked.meta?.changes??0),groups_removed:groups.length,player_preserved:true,login_account_removed:true})).run();
   await e.DB.prepare("DELETE FROM accounts WHERE id=? AND is_owner=0").bind(linked.id).run();
 };
 const disconnect=async(r:Request,e:Env,playerId:number)=>{
@@ -33,7 +35,7 @@ const deactivatePlayer=async(r:Request,e:Env,playerId:number)=>{
   if(linked?.is_owner)return new Response("The Owner cannot be moved to Former Players while their Owner account is linked. Transfer ownership first.",{status:400});
   if(linked)await removeLogin(e,a,playerId,linked,"player_moved_to_former_members");
   await e.DB.prepare("UPDATE players SET is_active=0,left_at=COALESCE(left_at,date('now')),updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(playerId).run();
-  await e.DB.prepare("INSERT INTO audit_log (public_id,actor_account_id,actor_display_name,action,entity_type,entity_id,subject_player_id,source,old_values,new_values,metadata) VALUES (?,?,?,?,?,?,?,?,?,?,?)").bind(crypto.randomUUID(),a.id,a.display_name,"player.deactivated","player",String(playerId),playerId,"web",JSON.stringify({is_active:p.is_active,left_at:p.left_at}),JSON.stringify({is_active:0}),JSON.stringify({discord_login_removed:!!linked})).run();
+  await e.DB.prepare("INSERT INTO audit_log (public_id,actor_account_id,actor_display_name,action,entity_type,entity_id,subject_player_id,source,old_values,new_values,metadata) VALUES (?,?,?,?,?,?,?,?,?,?,?)").bind(crypto.randomUUID(),a.id,a.display_name,"player.deactivated","player",String(playerId),playerId,"web",JSON.stringify({is_active:p.is_active,left_at:p.left_at}),JSON.stringify({is_active:0}),JSON.stringify({discord_login_removed:!!linked,access_groups_cleared:!!linked})).run();
   return redirect("/leadership/players?show=inactive",r);
 };
 const formerByUpdate=async(r:Request,e:Env,playerId:number)=>{
