@@ -1,4 +1,5 @@
 import app from "./security_access";
+import {playerActor,playerPermitted} from "./player_access";
 
 interface Env { DB:D1Database; ASSETS:R2Bucket; APP_URL:string; DISCORD_CLIENT_ID:string; DISCORD_CLIENT_SECRET:string; DISCORD_BOT_TOKEN:string; SETUP_KEY:string; AUTH_SECRET:string; }
 type Actor={id:number;display_name:string;is_owner:number};
@@ -6,13 +7,9 @@ type Group={id:number;public_id:string;name:string;description:string|null;is_sy
 type Permission={id:number;permission_key:string;name:string;description:string|null;category:string;is_protected:number};
 type Account={id:number;display_name:string;player_name:string|null;rank:number|null;is_owner:number;is_active:number;groups:string|null;overrides:number};
 type Audit={occurred_at:string;actor_display_name:string|null;action:string;entity_type:string;entity_id:string|null};
-const SESSION_COOKIE="ap_session";
 const esc=(v:string)=>v.replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;");
-const cookie=(r:Request,n:string)=>{for(const p of(r.headers.get("cookie")??"").split(";")){const [x,...z]=p.trim().split("=");if(x===n)return z.join("=")}return null};
-const b64=(b:Uint8Array)=>{let s="";for(const x of b)s+=String.fromCharCode(x);return btoa(s).replaceAll("+","-").replaceAll("/","_").replaceAll("=","")};
-const hash=async(v:string)=>b64(new Uint8Array(await crypto.subtle.digest("SHA-256",new TextEncoder().encode(v))));
-const actor=async(r:Request,e:Env)=>{const t=cookie(r,SESSION_COOKIE);if(!t)return null;return e.DB.prepare(`SELECT a.id,a.display_name,a.is_owner FROM sessions s JOIN accounts a ON a.id=s.account_id WHERE s.token_hash=? AND s.revoked_at IS NULL AND s.expires_at>CURRENT_TIMESTAMP AND a.is_active=1 AND a.approval_status='active' LIMIT 1`).bind(await hash(t)).first<Actor>()};
-const canManage=async(e:Env,a:Actor)=>{if(a.is_owner)return true;const x=await e.DB.prepare(`SELECT 1 AS ok FROM account_permission_overrides o JOIN permissions p ON p.id=o.permission_id WHERE o.account_id=? AND p.permission_key='permissions.manage' AND o.effect='allow' LIMIT 1`).bind(a.id).first<{ok:number}>();return !!x};
+const actor=async(r:Request,e:Env)=>playerActor(r,e);
+const canManage=async(e:Env,a:Actor)=>a.is_owner===1||await playerPermitted(e,a,"permissions.manage");
 const alliance=async(e:Env)=>e.DB.prepare("SELECT name,tag,server_number FROM alliance WHERE id=1").first<{name:string;tag:string|null;server_number:number|null}>();
 const redirect=(r:Request,saved:string)=>Response.redirect(new URL(`/leadership/security?${saved}`,r.url),303);
 const auditChange=async(e:Env,a:Actor,action:string,target:number,oldValues:string,newValues:string)=>{await e.DB.prepare(`INSERT INTO audit_log (public_id,actor_account_id,actor_display_name,action,entity_type,entity_id,source,old_values,new_values) VALUES (?,?,?,?,?,?,?,?,?)`).bind(crypto.randomUUID(),a.id,a.display_name,action,'account',String(target),'web',oldValues,newValues).run()};
