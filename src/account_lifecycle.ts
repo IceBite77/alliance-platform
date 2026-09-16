@@ -27,8 +27,6 @@ const removeLogin=async(e:Env,a:Actor,playerId:number,linked:Linked,reason:strin
 const loginAccess=async(r:Request,e:Env,playerId:number,enable:boolean)=>{
   const auth=await authorised(r,e,"accounts.manage");if(auth.response)return auth.response;const a=auth.actor!;
   const linked=await linkedAccount(e,playerId);if(!linked)return new Response("No linked account",{status:400});
-  // Ownership is protected absolutely: Administrators and custom groups can never
-  // disable or otherwise alter the Owner's login account through account management.
   if(linked.is_owner)return redirect(`/players/${playerId}?accesserror=owner`,r);
   if(enable){
     if(!linked.is_active){await e.DB.prepare("UPDATE accounts SET is_active=1,updated_at=CURRENT_TIMESTAMP WHERE id=? AND is_owner=0").bind(linked.id).run();await audit(e,a,"account.login_enabled",playerId,linked.id,{is_active:0},{is_active:1},{sessions_revoked:0});}
@@ -63,6 +61,15 @@ const formerByUpdate=async(r:Request,e:Env,playerId:number)=>{
   if(response instanceof Response&&response.status>=300&&response.status<400&&linked)await removeLogin(e,a,playerId,linked,"player_moved_to_former_members");
   return response;
 };
+const permissionAwarePlayerPage=async(r:Request,e:Env,response:Response)=>{
+  if(response.status!==200||!response.headers.get("content-type")?.includes("text/html"))return response;
+  const a=await playerActor(r,e) as Actor|null;if(!a)return response;
+  if(await playerPermitted(e,a,"accounts.manage"))return response;
+  let html=await response.text();
+  html=html.replace(/<form method="post" action="\/players\/\d+\/(?:disable-login|enable-login|disconnect-discord)"[\s\S]*?<\/form>/g,"");
+  const headers=new Headers(response.headers);headers.delete("content-length");
+  return new Response(html,{status:response.status,statusText:response.statusText,headers});
+};
 export default {async fetch(request:Request,env:Env):Promise<Response>{
   const u=new URL(request.url);
   const accessMatch=u.pathname.match(/^\/players\/(\d+)\/(disable-login|enable-login)$/);
@@ -73,5 +80,7 @@ export default {async fetch(request:Request,env:Env):Promise<Response>{
   if(request.method==="POST"&&deactivateMatch)return deactivatePlayer(request,env,Number(deactivateMatch[1]));
   const updateMatch=u.pathname.match(/^\/players\/(\d+)\/update$/);
   if(request.method==="POST"&&updateMatch){const f=await request.clone().formData();if(String(f.get("left_at")||"").trim())return formerByUpdate(request,env,Number(updateMatch[1]));}
-  return (app as any).fetch(request,env);
+  const response=await (app as any).fetch(request,env);
+  if(request.method==="GET"&&/^\/players\/\d+$/.test(u.pathname)&&response instanceof Response)return permissionAwarePlayerPage(request,env,response);
+  return response;
 }} satisfies ExportedHandler<Env>;
