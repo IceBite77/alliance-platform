@@ -5,6 +5,7 @@ import {handleUiV2Backup} from "./backup";
 import {handleUiV2Branding} from "./branding";
 import {renderUiV2Console} from "./console";
 import {handleUiV2Events} from "./events";
+import {renderUiV2Leadership} from "./leadership";
 import {renderUiV2Players} from "./players";
 import {handleUiV2PlayerImport} from "./player_import";
 import {handleUiV2PlayerManagement} from "./player_management";
@@ -22,7 +23,7 @@ export async function handleUiV2(request:Request,env:UiV2Env):Promise<Response|n
   const backup=url.pathname==="/ui-v2/backup"||/^\/ui-v2\/backup\/(?:complete|excel|roster)$/.test(url.pathname);
   const security=url.pathname==="/ui-v2/security"||url.pathname==="/ui-v2/security/groups"||url.pathname==="/ui-v2/security/owner-transfer"||/^\/ui-v2\/security\/(?:groups\/\d+(?:\/(?:delete|permissions|ranks|members(?:\/\d+\/remove)?))?|accounts\/\d+\/(?:administrator-add|administrator-remove)|blocks\/\d+\/unblock)$/.test(url.pathname);
   const settings=url.pathname==="/ui-v2/settings"||/^\/ui-v2\/settings\/(?:details|players|discord(?:\/(?:verify|disconnect))?)$/.test(url.pathname);
-  const supported=(request.method==="GET"&&(url.pathname==="/ui-v2"||url.pathname==="/ui-v2/players"||url.pathname==="/ui-v2/ranks"||url.pathname==="/ui-v2/audit"||away||events||backup||playerManagement||security||settings))||(request.method==="POST"&&(url.pathname==="/ui-v2/ranks"||away||events||backup||playerManagement||security||settings));
+  const supported=(request.method==="GET"&&(url.pathname==="/ui-v2"||url.pathname==="/ui-v2/leadership"||url.pathname==="/ui-v2/players"||url.pathname==="/ui-v2/ranks"||url.pathname==="/ui-v2/audit"||away||events||backup||playerManagement||security||settings))||(request.method==="POST"&&(url.pathname==="/ui-v2/ranks"||away||events||backup||playerManagement||security||settings));
   if(!supported)return null;
 
   const context=await loadUiV2Context(request,env);
@@ -44,6 +45,7 @@ export async function handleUiV2(request:Request,env:UiV2Env):Promise<Response|n
   const management=await handleUiV2PlayerManagement(request,env,context);
   if(management)return management;
   if(request.method==="GET"&&url.pathname==="/ui-v2/players")return renderUiV2Players(env,context,url);
+  if(request.method==="GET"&&url.pathname==="/ui-v2/leadership")return renderUiV2Leadership(env,context);
   if(url.pathname==="/ui-v2/ranks")return handleUiV2Ranks(request,env,context);
 
   return renderUiV2Console(env,context);
