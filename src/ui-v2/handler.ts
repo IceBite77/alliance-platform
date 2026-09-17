@@ -1,5 +1,6 @@
 import {loadUiV2Context,type UiV2Env} from "./context";
 import {renderUiV2Audit} from "./audit";
+import {handleUiV2Away} from "./away";
 import {handleUiV2Branding} from "./branding";
 import {renderUiV2Console} from "./console";
 import {renderUiV2Players} from "./players";
@@ -14,9 +15,10 @@ export async function handleUiV2(request:Request,env:UiV2Env):Promise<Response|n
   const branding=await handleUiV2Branding(request,env);
   if(branding)return branding;
   const playerManagement=url.pathname.startsWith("/ui-v2/players/import")||url.pathname==="/ui-v2/players/new"||url.pathname==="/ui-v2/players/access"||/^\/ui-v2\/players\/access\/\d+\/(?:approve|reject|block)$/.test(url.pathname)||/^\/ui-v2\/players\/\d+(?:\/(?:update|performance|deactivate|reactivate|disconnect|login-enable|login-disable|notes)|\/notes\/\d+\/(?:update|delete))?$/.test(url.pathname);
+  const away=url.pathname==="/ui-v2/away"||/^\/ui-v2\/away\/\d+\/(?:update|cancel)$/.test(url.pathname);
   const security=url.pathname==="/ui-v2/security"||url.pathname==="/ui-v2/security/groups"||url.pathname==="/ui-v2/security/owner-transfer"||/^\/ui-v2\/security\/(?:groups\/\d+(?:\/(?:delete|permissions|members(?:\/\d+\/remove)?))?|accounts\/\d+\/(?:administrator-add|administrator-remove)|blocks\/\d+\/unblock)$/.test(url.pathname);
   const settings=url.pathname==="/ui-v2/settings"||/^\/ui-v2\/settings\/(?:details|players|discord(?:\/(?:verify|disconnect))?)$/.test(url.pathname);
-  const supported=(request.method==="GET"&&(url.pathname==="/ui-v2"||url.pathname==="/ui-v2/players"||url.pathname==="/ui-v2/ranks"||url.pathname==="/ui-v2/audit"||playerManagement||security||settings))||(request.method==="POST"&&(url.pathname==="/ui-v2/ranks"||playerManagement||security||settings));
+  const supported=(request.method==="GET"&&(url.pathname==="/ui-v2"||url.pathname==="/ui-v2/players"||url.pathname==="/ui-v2/ranks"||url.pathname==="/ui-v2/audit"||away||playerManagement||security||settings))||(request.method==="POST"&&(url.pathname==="/ui-v2/ranks"||away||playerManagement||security||settings));
   if(!supported)return null;
 
   const context=await loadUiV2Context(request,env);
@@ -24,6 +26,8 @@ export async function handleUiV2(request:Request,env:UiV2Env):Promise<Response|n
 
   const securityResponse=await handleUiV2Security(request,env,context);
   if(securityResponse)return securityResponse;
+  const awayResponse=await handleUiV2Away(request,env,context);
+  if(awayResponse)return awayResponse;
   if(request.method==="GET"&&url.pathname==="/ui-v2/audit")return renderUiV2Audit(env,context);
   const settingsResponse=await handleUiV2Settings(request,env,context);
   if(settingsResponse)return settingsResponse;
