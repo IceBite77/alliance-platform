@@ -4,11 +4,19 @@ import {esc,renderUiV2FrontShell,uiV2Html} from "./shell";
 type CountRow={total:number};
 type AwayRow={display_name:string};
 type SettingRow={key:string;value:string};
+type WeeklyEventRow={event_name:string;event_time:string|null;note:string|null};
+
+const WEEKDAYS=["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
 
 const londonToday=()=>{
   const parts=new Intl.DateTimeFormat("en-GB",{timeZone:"Europe/London",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(new Date());
   const part=(type:string)=>parts.find(item=>item.type===type)?.value||"";
   return `${part("year")}-${part("month")}-${part("day")}`;
+};
+
+const londonWeekday=()=>{
+  const day=new Intl.DateTimeFormat("en-GB",{timeZone:"Europe/London",weekday:"long"}).format(new Date());
+  return Math.max(1,WEEKDAYS.indexOf(day)+1);
 };
 
 const dashboardCss=`<style>
@@ -32,15 +40,17 @@ const dashboardCss=`<style>
 
 export async function renderUiV2Console(env:UiV2Env,context:UiV2Context){
   const today=londonToday();
-  const [activePlayers,awayResult,settingRows]=await Promise.all([
+  const [activePlayers,awayResult,settingRows,weeklyEvent]=await Promise.all([
     env.DB.prepare("SELECT COUNT(*) total FROM players WHERE is_active=1").first<CountRow>(),
     env.DB.prepare("SELECT p.display_name FROM players p WHERE p.is_active=1 AND EXISTS(SELECT 1 FROM player_away_periods w WHERE w.player_id=p.id AND w.cancelled_at IS NULL AND w.start_date<=? AND (w.end_date IS NULL OR w.end_date>=?)) ORDER BY p.display_name COLLATE NOCASE LIMIT 4").bind(today,today).all<AwayRow>().catch(()=>null),
-    env.DB.prepare("SELECT key,value FROM settings WHERE key IN ('discord_invite_url','train_today_driver','train_today_vip')").all<SettingRow>().catch(()=>null)
+    env.DB.prepare("SELECT key,value FROM settings WHERE key IN ('discord_invite_url','train_today_driver','train_today_vip')").all<SettingRow>().catch(()=>null),
+    env.DB.prepare("SELECT event_name,event_time,note FROM weekly_events WHERE day_of_week=? AND enabled=1 AND TRIM(event_name)<>'' LIMIT 1").bind(londonWeekday()).first<WeeklyEventRow>().catch(()=>null)
   ]);
   const active=Number(activePlayers?.total??0),awayPlayers=awayResult?.results??[];
   const settings=Object.fromEntries((settingRows?.results??[]).map(row=>[row.key,row.value]));
   const discordInvite=settings.discord_invite_url?.trim()||(context.alliance.tag?.toLowerCase()==="duck"?"https://discord.gg/Cy7Bb4TGr":"");
   const trainDriver=settings.train_today_driver?.trim()||"Example Driver",trainVip=settings.train_today_vip?.trim()||"Example VIP",trainIsSample=!settings.train_today_driver;
+  const eventName=weeklyEvent?.event_name?.trim()||"No event scheduled",eventWhen=weeklyEvent?.event_time?.trim()||"Today",eventNote=weeklyEvent?.note?.trim()||"Nothing planned for today";
   const awaySummary=awayPlayers.length?`${awayPlayers.slice(0,2).map(player=>esc(player.display_name)).join(", ")}${awayPlayers.length>2?` +${awayPlayers.length-2}`:""}`:"Nobody currently away";
   const commandArtwork=context.branding.mainLogo?`<img src="/assets/${encodeURIComponent(context.branding.mainLogo)}" alt="${esc(context.alliance.name)} crest">`:`<div class="command-art-fallback">${esc(context.alliance.tag?`[${context.alliance.tag}]`:"AMP")}</div>`;
   const body=`${dashboardCss}
@@ -68,7 +78,7 @@ export async function renderUiV2Console(env:UiV2Env,context:UiV2Context){
     </section>
     <section class="dashboard-section">
       <div class="section-head"><div><h2>What’s happening</h2><p>One quick look at alliance life.</p></div><span class="sample-badge">Mixed live &amp; sample</span></div>
-      <article class="dashboard-card happening-panel"><div class="happening-rail">${discordInvite?`<div class="happening-item discord-item"><div class="happening-item-top"><span class="happening-type">Alliance Discord</span><span class="happening-when">Community</span></div><strong>Join House of Quack</strong><span>Chat, announcements and war coordination.</span><a class="discord-join" href="${esc(discordInvite)}" target="_blank" rel="noopener">Join Discord →</a></div>`:""}<div class="happening-item"><div class="happening-item-top"><span class="happening-type event">Event</span><span class="happening-when">Today</span></div><strong>VS · Hero Advancement</strong><span>Closes at reset</span></div><div class="happening-item"><div class="happening-item-top"><span class="happening-type birthday">Birthday</span><span class="happening-when">6 days</span></div><strong>Example Player</strong><span>Birthday coming up</span></div><div class="happening-item"><div class="happening-item-top"><span class="happening-type away">Away</span><span class="happening-when">Now</span></div><strong>${awaySummary}</strong><span>${awayPlayers.length?"Currently unavailable":"All members available"}</span></div></div></article>
+      <article class="dashboard-card happening-panel"><div class="happening-rail">${discordInvite?`<div class="happening-item discord-item"><div class="happening-item-top"><span class="happening-type">Alliance Discord</span><span class="happening-when">Community</span></div><strong>Join House of Quack</strong><span>Chat, announcements and war coordination.</span><a class="discord-join" href="${esc(discordInvite)}" target="_blank" rel="noopener">Join Discord →</a></div>`:""}<div class="happening-item"><div class="happening-item-top"><span class="happening-type event">Event</span><span class="happening-when">${esc(eventWhen)}</span></div><strong>${esc(eventName)}</strong><span>${esc(eventNote)}</span></div><div class="happening-item"><div class="happening-item-top"><span class="happening-type birthday">Birthday</span><span class="happening-when">6 days</span></div><strong>Example Player</strong><span>Birthday coming up</span></div><div class="happening-item"><div class="happening-item-top"><span class="happening-type away">Away</span><span class="happening-when">Now</span></div><strong>${awaySummary}</strong><span>${awayPlayers.length?"Currently unavailable":"All members available"}</span></div></div></article>
     </section>`;
   return uiV2Html(renderUiV2FrontShell(context,{title:"Command Centre",body,activePath:"/ui-v2"}));
 }
