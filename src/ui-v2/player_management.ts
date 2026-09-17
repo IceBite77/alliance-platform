@@ -46,22 +46,24 @@ async function addPage(request:Request,env:UiV2Env,context:UiV2Context){
   ]);
   const error=new URL(request.url).searchParams.get("error");
   const notice=error?`<div class="manage-notice error">${error==="duplicate"?"An active player already uses that name.":"Check the player details and try again."}</div>`:"";
-  const body=`${managementCss}<a class="manage-button secondary manage-return" href="/ui-v2/players">← Players</a>${notice}<section class="manage-card"><h2>Player identity</h2><p>Create the permanent player record first. Discord access can be matched to it later without relying on the player’s current name.</p><form method="post" action="/ui-v2/players/new"><div class="field-grid"><label class="field full"><span>Player name</span><input name="display_name" maxlength="80" autocomplete="off" required></label><label class="field"><span>Rank</span><select name="rank" required>${(ranks.results??[]).map(rankOption).join("")}</select></label><label class="field"><span>Base level</span><input name="base_level" type="number" inputmode="numeric" min="1" max="${maxBase}" placeholder="Not set"><small>Current platform maximum: ${maxBase}</small></label><label class="field"><span>Joined</span><input name="joined_at" type="date"></label><label class="field"><span>Birthday</span><input name="birthday" inputmode="numeric" maxlength="5" placeholder="DD/MM" pattern="(?:0?[1-9]|[12][0-9]|3[01])\/(?:0?[1-9]|1[0-2])"><small>Optional · day and month only</small></label></div><div class="form-actions"><a class="manage-button secondary" href="/ui-v2/players">Cancel</a><button class="manage-button" type="submit">Add player</button></div></form></section>`;
+  const body=`${managementCss}<a class="manage-button secondary manage-return" href="/ui-v2/players">← Players</a>${notice}<section class="manage-card"><h2>Player identity</h2><p>Create the permanent player record first. Discord access can be matched to it later without relying on the player’s current name.</p><form method="post" action="/ui-v2/players/new"><div class="field-grid"><label class="field full"><span>Player name</span><input name="display_name" maxlength="80" autocomplete="off" required></label><label class="field"><span>Rank</span><select name="rank" required>${(ranks.results??[]).map(rankOption).join("")}</select></label><label class="field"><span>Base level</span><input name="base_level" type="number" inputmode="numeric" min="1" max="${maxBase}" placeholder="Not set"><small>Current platform maximum: ${maxBase}</small></label><label class="field"><span>Joined</span><input name="joined_at" type="date"></label><label class="field"><span>Birthday</span><input name="birthday" inputmode="numeric" maxlength="5" placeholder="DD/MM" pattern="(?:0?[1-9]|[12][0-9]|3[01])\/(?:0?[1-9]|1[0-2])"><small>Optional · day and month only</small></label><label class="field full"><span>Initial Total Strength</span><input name="total_strength" inputmode="decimal" placeholder="Optional · e.g. 120M"><small>This can be entered now, then updated manually or through the weekly roster upload.</small></label></div><div class="form-actions"><a class="manage-button secondary" href="/ui-v2/players">Cancel</a><button class="manage-button" type="submit">Add player</button></div></form></section>`;
   return uiV2Html(renderUiV2Shell(context,{eyebrow:"Players",title:"Add Player",description:"Add a new active member to the alliance roster.",body,activePath:"/ui-v2/players"}));
 }
 
 async function createPlayer(request:Request,env:UiV2Env,context:UiV2Context){
   if(!context.user.canManageMembership||!playerSameOrigin(request,env))return new Response("Forbidden",{status:403});
-  const value=await readPlayerProfileForm(request,env);
-  if(!value.valid||!validIsoDate(value.joined))return redirect(request,"/ui-v2/players/new?error=invalid");
+  const copy=request.clone(),value=await readPlayerProfileForm(request,env),form=await copy.formData(),strength=parsePerformancePower(form.get("total_strength"));
+  if(!value.valid||!validIsoDate(value.joined)||!strength.valid)return redirect(request,"/ui-v2/players/new?error=invalid");
   if(value.rank===5&&!context.user.canManageProtectedRank)return new Response("Protected R5 rank requires explicit permission",{status:403});
   try{
-    const inserted=await env.DB.prepare("INSERT INTO players (display_name,rank,base_level,is_active,joined_at,left_at,birthday_month,birthday_day) VALUES (?,?,?,1,?,NULL,?,?)").bind(value.name,value.rank,value.base,value.joined,value.birthdayMonth,value.birthdayDay).run();
+    const inserted=await env.DB.prepare("INSERT INTO players (display_name,rank,base_level,player_power,is_active,joined_at,left_at,birthday_month,birthday_day) VALUES (?,?,?,?,1,?,NULL,?,?)").bind(value.name,value.rank,value.base,strength.value,value.joined,value.birthdayMonth,value.birthdayDay).run();
     const id=Number(inserted.meta.last_row_id);
-    await env.DB.batch([
+    const statements:D1PreparedStatement[]=[
       env.DB.prepare("INSERT INTO player_rank_history (player_id,old_rank,new_rank,changed_by_account_id,note) VALUES (?,NULL,?,?,?)").bind(id,value.rank,context.user.accountId,"Player created"),
-      auditStatement(env,context,"player.created","player",String(id),null,{display_name:value.name,rank:value.rank,base_level:value.base,joined_at:value.joined,birthday_month:value.birthdayMonth,birthday_day:value.birthdayDay})
-    ]);
+      auditStatement(env,context,"player.created","player",String(id),null,{display_name:value.name,rank:value.rank,base_level:value.base,total_strength:strength.value,joined_at:value.joined,birthday_month:value.birthdayMonth,birthday_day:value.birthdayDay})
+    ];
+    if(strength.value!==null)statements.push(env.DB.prepare("INSERT INTO player_roster_snapshots (player_id,total_strength,recorded_by_account_id,source) VALUES (?,?,?,'manual')").bind(id,strength.value,context.user.accountId));
+    await env.DB.batch(statements);
     return redirect(request,`/ui-v2/players?created=${encodeURIComponent(value.name)}`);
   }catch{return redirect(request,"/ui-v2/players/new?error=duplicate")}
 }

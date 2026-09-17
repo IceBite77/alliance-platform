@@ -13,7 +13,7 @@ export async function handleUiV2(request:Request,env:UiV2Env):Promise<Response|n
   const url=new URL(request.url);
   const branding=await handleUiV2Branding(request,env);
   if(branding)return branding;
-  const playerManagement=url.pathname.startsWith("/ui-v2/players/import")||url.pathname==="/ui-v2/players/new"||url.pathname==="/ui-v2/players/access"||/^\/ui-v2\/players\/access\/\d+\/(?:approve|reject)$/.test(url.pathname)||/^\/ui-v2\/players\/\d+(?:\/(?:update|deactivate|reactivate|disconnect|login-enable|login-disable|notes)|\/notes\/\d+\/(?:update|delete))?$/.test(url.pathname);
+  const playerManagement=url.pathname.startsWith("/ui-v2/players/import")||url.pathname==="/ui-v2/players/new"||url.pathname==="/ui-v2/players/access"||/^\/ui-v2\/players\/access\/\d+\/(?:approve|reject)$/.test(url.pathname)||/^\/ui-v2\/players\/\d+(?:\/(?:update|performance|deactivate|reactivate|disconnect|login-enable|login-disable|notes)|\/notes\/\d+\/(?:update|delete))?$/.test(url.pathname);
   const security=url.pathname==="/ui-v2/security"||url.pathname==="/ui-v2/security/groups"||/^\/ui-v2\/security\/(?:groups\/\d+(?:\/(?:delete|permissions|members(?:\/\d+\/remove)?))?|accounts\/\d+\/(?:administrator-add|administrator-remove))$/.test(url.pathname);
   const settings=url.pathname==="/ui-v2/settings"||/^\/ui-v2\/settings\/(?:details|players|discord(?:\/(?:verify|disconnect))?)$/.test(url.pathname);
   const supported=(request.method==="GET"&&(url.pathname==="/ui-v2"||url.pathname==="/ui-v2/players"||url.pathname==="/ui-v2/ranks"||url.pathname==="/ui-v2/audit"||playerManagement||security||settings))||(request.method==="POST"&&(url.pathname==="/ui-v2/ranks"||playerManagement||security||settings));
