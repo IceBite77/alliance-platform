@@ -17,6 +17,12 @@ export const getPlayerMaxBaseLevel=async(env:PlayerProfileEnv)=>{
   return Number.isInteger(n)&&n>=1&&n<=999?n:35;
 };
 
+export const getPlayerMaxOverlordLevel=async(env:PlayerProfileEnv)=>{
+  const row=await env.DB.prepare("SELECT value FROM settings WHERE key='player_max_overlord_level'").first<{value:string}>();
+  const n=Number(row?.value??6);
+  return Number.isInteger(n)&&n>=1&&n<=999?n:6;
+};
+
 export const parsePlayerBirthday=(value:string)=>{
   const text=value.trim();
   const match=text.match(/^(\d{1,2})\/(\d{1,2})$/);
