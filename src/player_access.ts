@@ -73,14 +73,21 @@ export const playerPermitted=async(env:PlayerAccessEnv,actor:PermissionActor,key
         WHERE o.account_id=? AND p.permission_key=? AND o.effect='allow'
       ) THEN 1
       WHEN EXISTS(
-        SELECT 1 FROM account_groups ag
-        JOIN group_permissions gp ON gp.group_id=ag.group_id
+        SELECT 1 FROM group_permissions gp
         JOIN permissions p ON p.id=gp.permission_id
-        WHERE ag.account_id=? AND p.permission_key=?
+        WHERE p.permission_key=? AND gp.group_id IN (
+          SELECT ag.group_id FROM account_groups ag WHERE ag.account_id=?
+          UNION
+          SELECT gr.group_id
+          FROM permission_group_ranks gr
+          JOIN accounts a ON a.id=?
+          JOIN players player ON player.id=a.player_id AND player.is_active=1
+          WHERE gr.rank=player.rank
+        )
       ) THEN 1
       ELSE 0
     END AS allowed
-  `).bind(actor.id,key,actor.id,key,actor.id,key).first<{allowed:number}>();
+  `).bind(actor.id,key,actor.id,key,key,actor.id,actor.id).first<{allowed:number}>();
   return Number(row?.allowed??0)===1;
 };
 
