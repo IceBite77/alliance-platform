@@ -4,6 +4,7 @@ import {handleUiV2Away} from "./away";
 import {handleUiV2Backup} from "./backup";
 import {handleUiV2Branding} from "./branding";
 import {renderUiV2Console} from "./console";
+import {handleUiV2Events} from "./events";
 import {renderUiV2Players} from "./players";
 import {handleUiV2PlayerImport} from "./player_import";
 import {handleUiV2PlayerManagement} from "./player_management";
@@ -17,10 +18,11 @@ export async function handleUiV2(request:Request,env:UiV2Env):Promise<Response|n
   if(branding)return branding;
   const playerManagement=url.pathname.startsWith("/ui-v2/players/import")||url.pathname==="/ui-v2/players/new"||url.pathname==="/ui-v2/players/access"||/^\/ui-v2\/players\/access\/\d+\/(?:approve|reject|block)$/.test(url.pathname)||/^\/ui-v2\/players\/\d+(?:\/(?:update|performance|deactivate|reactivate|disconnect|login-enable|login-disable|notes)|\/notes\/\d+\/(?:update|delete))?$/.test(url.pathname);
   const away=url.pathname==="/ui-v2/away"||/^\/ui-v2\/away\/\d+\/(?:update|cancel)$/.test(url.pathname);
+  const events=url.pathname==="/ui-v2/events";
   const backup=url.pathname==="/ui-v2/backup"||/^\/ui-v2\/backup\/(?:complete|excel|roster)$/.test(url.pathname);
   const security=url.pathname==="/ui-v2/security"||url.pathname==="/ui-v2/security/groups"||url.pathname==="/ui-v2/security/owner-transfer"||/^\/ui-v2\/security\/(?:groups\/\d+(?:\/(?:delete|permissions|ranks|members(?:\/\d+\/remove)?))?|accounts\/\d+\/(?:administrator-add|administrator-remove)|blocks\/\d+\/unblock)$/.test(url.pathname);
   const settings=url.pathname==="/ui-v2/settings"||/^\/ui-v2\/settings\/(?:details|players|discord(?:\/(?:verify|disconnect))?)$/.test(url.pathname);
-  const supported=(request.method==="GET"&&(url.pathname==="/ui-v2"||url.pathname==="/ui-v2/players"||url.pathname==="/ui-v2/ranks"||url.pathname==="/ui-v2/audit"||away||backup||playerManagement||security||settings))||(request.method==="POST"&&(url.pathname==="/ui-v2/ranks"||away||backup||playerManagement||security||settings));
+  const supported=(request.method==="GET"&&(url.pathname==="/ui-v2"||url.pathname==="/ui-v2/players"||url.pathname==="/ui-v2/ranks"||url.pathname==="/ui-v2/audit"||away||events||backup||playerManagement||security||settings))||(request.method==="POST"&&(url.pathname==="/ui-v2/ranks"||away||events||backup||playerManagement||security||settings));
   if(!supported)return null;
 
   const context=await loadUiV2Context(request,env);
@@ -30,6 +32,8 @@ export async function handleUiV2(request:Request,env:UiV2Env):Promise<Response|n
   if(securityResponse)return securityResponse;
   const awayResponse=await handleUiV2Away(request,env,context);
   if(awayResponse)return awayResponse;
+  const eventsResponse=await handleUiV2Events(request,env,context);
+  if(eventsResponse)return eventsResponse;
   const backupResponse=await handleUiV2Backup(request,env,context);
   if(backupResponse)return backupResponse;
   if(request.method==="GET"&&url.pathname==="/ui-v2/audit")return renderUiV2Audit(env,context);
