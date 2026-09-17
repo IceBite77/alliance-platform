@@ -18,7 +18,7 @@ type PlayerRow={
   discord_username:string|null;
 };
 
-type PendingRow={display_name:string;provider_username:string|null;created_at:string};
+type PendingRow={display_name:string;provider_username:string|null;claimed_player_name:string|null;created_at:string};
 
 const assetUrl=(key:string)=>`/assets/${encodeURIComponent(key)}`;
 
@@ -57,11 +57,11 @@ export async function renderUiV2Players(env:UiV2Env,context:UiV2Context,url:URL)
   if(!context.user.canManagePlayers)return uiV2Html(renderUiV2Shell(context,{eyebrow:"Management",title:"Players",description:"You do not have permission to manage players.",body:"",activePath:"/ui-v2/players"}),403);
   const [playerResult,pendingResult]=await Promise.all([
     env.DB.prepare(`SELECT p.id,p.display_name,p.rank,p.base_level,p.is_active,p.joined_at,p.left_at,r.display_name rank_name,r.image_path rank_image,r.colour rank_colour,a.id account_id,a.approval_status account_status,a.is_active account_active,i.provider_username discord_username FROM players p LEFT JOIN alliance_ranks r ON r.rank_level=p.rank LEFT JOIN accounts a ON a.player_id=p.id LEFT JOIN account_identities i ON i.account_id=a.id AND i.provider='discord' ORDER BY p.is_active DESC,p.display_name COLLATE NOCASE`).all<PlayerRow>(),
-    env.DB.prepare(`SELECT a.display_name,i.provider_username,a.created_at FROM accounts a LEFT JOIN account_identities i ON i.account_id=a.id AND i.provider='discord' WHERE a.approval_status='pending' ORDER BY a.created_at`).all<PendingRow>()
+    env.DB.prepare(`SELECT a.display_name,a.claimed_player_name,i.provider_username,a.created_at FROM accounts a LEFT JOIN account_identities i ON i.account_id=a.id AND i.provider='discord' WHERE a.approval_status='pending' ORDER BY a.created_at`).all<PendingRow>()
   ]);
   const players=playerResult.results??[],pending=pendingResult.results??[];
   const active=players.filter(player=>player.is_active).length,former=players.length-active,linked=players.filter(player=>player.discord_username&&player.account_id&&player.account_status==="active"&&player.account_active===1).length;
-  const waiting=pending.length?`<div class="waiting-panel"><div><strong>${pending.length} ${pending.length===1?"account is":"accounts are"} waiting for access</strong><span>${esc(pending.slice(0,3).map(item=>item.provider_username||item.display_name).join(", "))}${pending.length>3?` and ${pending.length-3} more`:""}</span></div>${context.user.canApproveAccounts?'<a href="/ui-v2/players/access">Review access</a>':""}</div>`:"";
+  const waiting=pending.length?`<div class="waiting-panel"><div><strong>${pending.length} ${pending.length===1?"account is":"accounts are"} waiting for access</strong><span>${esc(pending.slice(0,3).map(item=>item.claimed_player_name||item.provider_username||item.display_name).join(", "))}${pending.length>3?` and ${pending.length-3} more`:""}</span></div>${context.user.canApproveAccounts?'<a href="/ui-v2/players/access">Review access</a>':""}</div>`:"";
   const waitingCard=context.user.canApproveAccounts?`<a class="summary-item waiting${pending.length?" has-waiting":""}" href="/ui-v2/players/access"><span>Waiting access</span><strong>${pending.length}</strong></a>`:`<div class="summary-item waiting${pending.length?" has-waiting":""}" style="cursor:default"><span>Waiting access</span><strong>${pending.length}</strong></div>`;
   const created=url.searchParams.get("created"),added=Number(url.searchParams.get("added")||0),updated=Number(url.searchParams.get("updated")||0),reactivated=Number(url.searchParams.get("reactivated")||0),unchanged=Number(url.searchParams.get("unchanged")||0);
   const createdNotice=created?`<div class="player-notice">${esc(created)} was added to the active roster.</div>`:added||updated||reactivated||unchanged?`<div class="player-notice">Roster upload complete · ${added} added · ${updated} updated · ${reactivated} reactivated · ${unchanged} unchanged.</div>`:"";
