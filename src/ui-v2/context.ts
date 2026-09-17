@@ -38,6 +38,7 @@ export type UiV2User={
   canManageDiscord:boolean;
   canManagePlayerSettings:boolean;
   canManagePlayers:boolean;
+  canManageAway:boolean;
   canEditPlayers:boolean;
   canManageMembership:boolean;
   canManageProtectedRank:boolean;
@@ -53,7 +54,7 @@ export type UiV2User={
 export type UiV2NavItem={
   label:string;
   href:string;
-  section:"Navigation"|"Management"|"Security"|"Settings";
+  section:"Navigation"|"Management"|"Operations"|"Security"|"Settings";
   anyPermission?:string[];
 };
 
@@ -71,6 +72,7 @@ type PlayerRow={rank:number|null;rank_name:string|null;rank_colour:string|null};
 const NAV_ITEMS:UiV2NavItem[]=[
   {label:"Leadership Console",href:"/ui-v2",section:"Navigation"},
   {label:"Players",href:"/ui-v2/players",section:"Management",anyPermission:["players.edit","players.manage_membership","players.approve_changes","accounts.approve"]},
+  {label:"Away",href:"/ui-v2/away",section:"Operations",anyPermission:["away.manage_all"]},
   {label:"Access & Permissions",href:"/ui-v2/security",section:"Security",anyPermission:["accounts.manage","permissions.manage"]},
   {label:"Audit Log",href:"/ui-v2/audit",section:"Security",anyPermission:["audit.view"]},
   {label:"Settings Home",href:"/ui-v2/settings",section:"Settings",anyPermission:["settings.manage","settings.details","settings.branding","settings.discord","settings.ranks","settings.players"]},
@@ -104,7 +106,7 @@ export async function loadUiV2Context(request:Request,env:UiV2Env):Promise<UiV2C
   const playerPermissions=["players.edit","players.manage_membership","players.approve_changes","accounts.approve"];
   const securityPermissions=["accounts.manage","permissions.manage"];
   const settingsPermissions=["settings.manage","settings.details","settings.branding","settings.discord","settings.ranks","settings.players"];
-  const [alliance,settingRows,player,isAdministrator,canManageBranding,canManageRanks,canManageDetails,canManageDiscord,canManagePlayerSettings,canManagePlayers,canEditPlayers,canManageMembership,canManageProtectedRank,canManageAccounts,canManagePrivateNotes,canApproveAccounts,canManageSecurity,canManagePermissions,canViewAudit,canManageSettings,navigation]=await Promise.all([
+  const [alliance,settingRows,player,isAdministrator,canManageBranding,canManageRanks,canManageDetails,canManageDiscord,canManagePlayerSettings,canManagePlayers,canManageAway,canEditPlayers,canManageMembership,canManageProtectedRank,canManageAccounts,canManagePrivateNotes,canApproveAccounts,canManageSecurity,canManagePermissions,canViewAudit,canManageSettings,navigation]=await Promise.all([
     env.DB.prepare("SELECT name,tag,server_number FROM alliance WHERE id=1").first<AllianceRow>(),
     env.DB.prepare("SELECT key,value FROM settings WHERE key LIKE 'theme_%' OR key IN ('platform_name','brand_main_logo','brand_favicon','footer_text','show_rank_names')").all<SettingRow>(),
     actor.player_id
@@ -117,6 +119,7 @@ export async function loadUiV2Context(request:Request,env:UiV2Env):Promise<UiV2C
     anyPermitted(env,actor,["settings.manage","settings.discord"]),
     anyPermitted(env,actor,["settings.manage","settings.players"]),
     anyPermitted(env,actor,playerPermissions),
+    playerPermitted(env,actor,"away.manage_all"),
     playerPermitted(env,actor,"players.edit"),
     playerPermitted(env,actor,"players.manage_membership"),
     playerPermitted(env,actor,"players.manage_protected_rank"),
@@ -164,6 +167,7 @@ export async function loadUiV2Context(request:Request,env:UiV2Env):Promise<UiV2C
       canManageDiscord,
       canManagePlayerSettings,
       canManagePlayers,
+      canManageAway,
       canEditPlayers,
       canManageMembership,
       canManageProtectedRank,
