@@ -55,7 +55,7 @@ const comingCards=(context:UiV2Context)=>[
   ["intel","Analysis","Intelligence","Leadership watch, trends and alliance performance insights."],
   ["train","Alliance","Train","Alliance Train activity and supporting operational tools."],
   ["backup","Data","Backup & Export","Portable exports and recovery tools for the alliance owner."]
-].map(([name,kicker,title,description])=>name==="away"&&context.user.canManageAway?`<a class="console-card console-card-link" href="/ui-v2/away">${icon("away")}<span class="card-arrow">→</span><span class="card-kicker">${kicker}</span><h3>${title}</h3><p>${description}</p></a>`:`<article class="console-card coming-card">${icon(name as Parameters<typeof icon>[0])}<span class="card-kicker">${kicker}</span><h3>${title}</h3><p>${description}</p><span class="coming-badge">Coming later</span></article>`).join("");
+].map(([name,kicker,title,description])=>name==="away"&&context.user.canManageAway?`<a class="console-card console-card-link" href="/ui-v2/away">${icon("away")}<span class="card-arrow">→</span><span class="card-kicker">${kicker}</span><h3>${title}</h3><p>${description}</p></a>`:name==="backup"&&context.user.isOwner?`<a class="console-card console-card-link" href="/ui-v2/backup">${icon("backup")}<span class="card-arrow">→</span><span class="card-kicker">${kicker}</span><h3>${title}</h3><p>${description}</p></a>`:`<article class="console-card coming-card">${icon(name as Parameters<typeof icon>[0])}<span class="card-kicker">${kicker}</span><h3>${title}</h3><p>${description}</p><span class="coming-badge">Coming later</span></article>`).join("");
 
 export async function renderUiV2Console(env:UiV2Env,context:UiV2Context){
   const today=londonToday();
