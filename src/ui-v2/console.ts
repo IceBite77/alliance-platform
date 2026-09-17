@@ -2,24 +2,13 @@ import type {UiV2Context,UiV2Env} from "./context";
 import {esc,renderUiV2FrontShell,uiV2Html} from "./shell";
 
 type CountRow={total:number};
-type GuildRow={guild_name:string};
 type AwayRow={display_name:string};
+type SettingRow={value:string};
 
 const londonToday=()=>{
   const parts=new Intl.DateTimeFormat("en-GB",{timeZone:"Europe/London",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(new Date());
   const part=(type:string)=>parts.find(item=>item.type===type)?.value||"";
   return `${part("year")}-${part("month")}-${part("day")}`;
-};
-
-const icon=(name:"players"|"security"|"settings"|"away"|"backup")=>{
-  const paths={
-    players:'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>',
-    security:'<path d="M12 3l8 4v5c0 5-3.4 8.5-8 9-4.6-.5-8-4-8-9V7l8-4z"/><path d="M9 12l2 2 4-4"/>',
-    settings:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l-2.83 2.83A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1.4 1.6h-3.2A1.7 1.7 0 0 0 9 19.4a1.7 1.7 0 0 0-1.91.31l-2.83-2.83A1.7 1.7 0 0 0 4.6 15 1.7 1.7 0 0 0 3 13.6v-3.2A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.34-1.88l2.83-2.83A1.7 1.7 0 0 0 9 4.6 1.7 1.7 0 0 0 10.4 3h3.2A1.7 1.7 0 0 0 15 4.6a1.7 1.7 0 0 0 1.91-.31l2.83 2.83A1.7 1.7 0 0 0 19.4 9a1.7 1.7 0 0 0 1.6 1.4v3.2a1.7 1.7 0 0 0-1.6 1.4z"/>',
-    away:'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 11h18M9 16l2 2 4-4"/>',
-    backup:'<path d="M12 3v12M7 10l5 5 5-5M5 21h14a2 2 0 0 0 2-2v-2M3 17v2a2 2 0 0 0 2 2"/>'
-  };
-  return `<span class="console-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${paths[name]}</svg></span>`;
 };
 
 const dashboardCss=`<style>
@@ -34,34 +23,25 @@ const dashboardCss=`<style>
 @media(max-width:950px){.snapshot-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.life-grid{grid-template-columns:1fr}.side-stack{grid-template-columns:1fr 1fr}.game-grid{grid-template-columns:1fr 1fr}.game-grid .game-card:last-child{grid-column:1/-1}.manage-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:900px){.command-hero{grid-template-columns:minmax(0,1fr) minmax(170px,245px);min-height:300px;padding:32px 30px;gap:20px}.command-title{font-size:clamp(2.7rem,7.6vw,4.35rem)}.command-art{min-height:220px}.command-art img{max-height:250px}.command-art-fallback{width:170px;height:170px;font-size:1.35rem}.command-hero::after{left:30px;width:190px}}
 @media(max-width:650px){.command-hero{grid-template-columns:1fr;padding:21px 18px 18px}.command-art{position:absolute;right:-20px;bottom:-18px;width:185px;opacity:.25}.command-copy{padding-right:3px}.command-title{max-width:390px;font-size:clamp(2.05rem,12vw,3rem)}.command-sub{max-width:88%;font-size:.78rem}.preview-note,.section-head{display:block}.sample-badge{display:inline-flex;margin-top:8px}.snapshot-grid,.side-stack,.game-grid,.manage-grid{grid-template-columns:1fr}.game-grid .game-card:last-child{grid-column:auto}.snapshot-card strong{font-size:1.3rem}.event-row,.person-row{grid-template-columns:46px minmax(0,1fr)}.row-state{grid-column:2;width:max-content}.news-row{grid-template-columns:62px minmax(0,1fr)}}
+.command-hero{grid-template-columns:minmax(0,1fr) minmax(190px,270px);gap:24px;min-height:245px;margin-bottom:14px;padding:27px 34px}.command-hero::after{left:34px;width:175px;height:3px}.command-kicker{margin-bottom:7px;font-size:.64rem}.command-title{max-width:720px;font-size:clamp(2.45rem,4.7vw,4.2rem);line-height:.9}.command-sub{max-width:690px;margin-top:12px;font-size:.82rem}.command-meta{display:none}.command-art{min-height:190px}.command-art img{width:min(100%,255px);max-height:220px}.command-art-fallback{width:160px;height:160px;font-size:1.3rem}.happening-grid{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(300px,.8fr);gap:13px}.events-card .event-row{grid-template-columns:58px minmax(0,1fr) auto;padding:14px 0}.events-card .date-tile{min-height:52px}.events-card .row-copy strong{font-size:.86rem}.events-card .row-copy span{font-size:.7rem}.compact-news .news-feature{padding:15px}.compact-news .news-feature h3{font-size:1.05rem}.compact-news .news-list{margin-top:7px}.community-grid{display:grid;grid-template-columns:1fr 1fr .85fr;gap:13px;margin-top:13px}.community-grid.two{grid-template-columns:1fr 1fr}.discord-card{display:flex;flex-direction:column;justify-content:center;background:radial-gradient(circle at 90% 15%,rgba(88,101,242,.2),transparent 38%),linear-gradient(145deg,#111a36,var(--ui-surface-2))}.discord-card p{margin:8px 0 0;color:var(--ui-muted);font-size:.72rem;line-height:1.5}.discord-join{display:inline-flex;align-items:center;justify-content:center;width:max-content;margin-top:14px;padding:9px 12px;border:1px solid rgba(137,146,255,.48);border-radius:9px;background:#5865f2;color:#fff;font-size:.7rem;font-weight:900;text-decoration:none}.discord-join:hover{background:#6975f4}.discord-mark{color:#aeb5ff;font-size:.62rem;font-weight:950;letter-spacing:.08em;text-transform:uppercase}
+@media(max-width:950px){.command-hero{grid-template-columns:minmax(0,1fr) minmax(155px,215px);min-height:220px;padding:24px 26px}.command-title{font-size:clamp(2.35rem,6vw,3.65rem)}.command-art{min-height:170px}.command-art img{max-height:190px}.command-art-fallback{width:140px;height:140px}.happening-grid{grid-template-columns:1fr}.community-grid{grid-template-columns:1fr 1fr}.discord-card{grid-column:1/-1}}
+@media(max-width:650px){.command-hero{grid-template-columns:1fr;min-height:215px;padding:21px 18px}.command-hero::after{left:18px}.command-title{font-size:clamp(2.05rem,11vw,3rem)}.command-art{position:absolute;right:-20px;bottom:-22px;width:175px;min-height:170px;opacity:.28}.command-art img{max-height:175px}.command-sub{max-width:82%}.community-grid{grid-template-columns:1fr}.discord-card{grid-column:auto}.events-card .event-row{grid-template-columns:50px minmax(0,1fr)}.events-card .row-state{grid-column:2}}
 </style>`;
-
-function managementCards(context:UiV2Context,pending:number){
-  const cards:string[]=[];
-  if(context.user.canManagePlayers)cards.push(`<a class="manage-card" href="/ui-v2/players">${icon("players")}<span class="manage-arrow">→</span><h3>Players</h3><p>Roster, profiles, membership, birthdays and leadership notes.</p>${pending?`<span class="attention">${pending} waiting</span>`:""}</a>`);
-  if(context.user.canManageAway)cards.push(`<a class="manage-card" href="/ui-v2/away">${icon("away")}<span class="manage-arrow">→</span><h3>Away</h3><p>Record availability and review current or upcoming absences.</p></a>`);
-  if(context.user.canManageSecurity)cards.push(`<a class="manage-card" href="/ui-v2/security">${icon("security")}<span class="manage-arrow">→</span><h3>Security</h3><p>Accounts, Access Groups and platform permissions.</p></a>`);
-  if(context.user.canManageSettings)cards.push(`<a class="manage-card" href="/ui-v2/settings">${icon("settings")}<span class="manage-arrow">→</span><h3>Settings</h3><p>Alliance details, branding, Discord, ranks and player options.</p></a>`);
-  if(context.user.isOwner)cards.push(`<a class="manage-card" href="/ui-v2/backup">${icon("backup")}<span class="manage-arrow">→</span><h3>Backup &amp; Export</h3><p>Portable exports and recovery tools for the alliance owner.</p></a>`);
-  return cards.join("");
-}
 
 export async function renderUiV2Console(env:UiV2Env,context:UiV2Context){
   const today=londonToday();
-  const [activePlayers,formerPlayers,pendingAccounts,guild,awayResult]=await Promise.all([
+  const [activePlayers,formerPlayers,awayResult,discordInviteRow]=await Promise.all([
     env.DB.prepare("SELECT COUNT(*) total FROM players WHERE is_active=1").first<CountRow>(),
     env.DB.prepare("SELECT COUNT(*) total FROM players WHERE is_active=0").first<CountRow>(),
-    context.user.canApproveAccounts?env.DB.prepare("SELECT COUNT(*) total FROM accounts WHERE approval_status='pending'").first<CountRow>():Promise.resolve(null),
-    env.DB.prepare("SELECT guild_name FROM discord_guild_connection WHERE id=1 LIMIT 1").first<GuildRow>().catch(()=>null),
-    env.DB.prepare("SELECT p.display_name FROM players p WHERE p.is_active=1 AND EXISTS(SELECT 1 FROM player_away_periods w WHERE w.player_id=p.id AND w.cancelled_at IS NULL AND w.start_date<=? AND (w.end_date IS NULL OR w.end_date>=?)) ORDER BY p.display_name COLLATE NOCASE LIMIT 4").bind(today,today).all<AwayRow>().catch(()=>null)
+    env.DB.prepare("SELECT p.display_name FROM players p WHERE p.is_active=1 AND EXISTS(SELECT 1 FROM player_away_periods w WHERE w.player_id=p.id AND w.cancelled_at IS NULL AND w.start_date<=? AND (w.end_date IS NULL OR w.end_date>=?)) ORDER BY p.display_name COLLATE NOCASE LIMIT 4").bind(today,today).all<AwayRow>().catch(()=>null),
+    env.DB.prepare("SELECT value FROM settings WHERE key='discord_invite_url' LIMIT 1").first<SettingRow>().catch(()=>null)
   ]);
-  const active=Number(activePlayers?.total??0),former=Number(formerPlayers?.total??0),pending=Number(pendingAccounts?.total??0),awayPlayers=awayResult?.results??[];
+  const active=Number(activePlayers?.total??0),former=Number(formerPlayers?.total??0),awayPlayers=awayResult?.results??[];
+  const discordInvite=discordInviteRow?.value?.trim()||(context.alliance.tag?.toLowerCase()==="duck"?"https://discord.gg/Cy7Bb4TGr":"");
   const awayRows=awayPlayers.length?awayPlayers.map((player,index)=>`<div class="person-row"><div class="date-tile"><strong>${index+1}</strong><span>Away</span></div><div class="row-copy"><strong>${esc(player.display_name)}</strong><span>Currently unavailable</span></div><span class="row-state warning">Away now</span></div>`).join(""):`<div class="person-row"><div class="date-tile"><strong>✓</strong><span>Clear</span></div><div class="row-copy"><strong>Nobody currently away</strong><span>Live player-away data</span></div><span class="row-state success">All present</span></div>`;
-  const management=managementCards(context,pending);
   const commandArtwork=context.branding.mainLogo?`<img src="/assets/${encodeURIComponent(context.branding.mainLogo)}" alt="${esc(context.alliance.name)} crest">`:`<div class="command-art-fallback">${esc(context.alliance.tag?`[${context.alliance.tag}]`:"AMP")}</div>`;
   const body=`${dashboardCss}
-    <section class="command-hero" aria-label="${esc(context.alliance.name)} command centre"><div class="command-copy"><div class="command-kicker">Alliance intelligence • Live command view</div><h2 class="command-title">${esc(context.alliance.name)}<span class="gold">Command Centre</span></h2><p class="command-sub">Events, member activity and the numbers behind your alliance—all brought together in one stronger, game-inspired dashboard.</p><div class="command-meta"><span class="command-pill live">Platform online</span><span class="command-pill">${context.alliance.tag?`[${esc(context.alliance.tag)}] · `:""}${context.alliance.serverNumber?`Server #${context.alliance.serverNumber}`:"Server not set"}</span></div></div><div class="command-art">${commandArtwork}</div></section>
-    <div class="preview-note"><span><strong>Layout preview.</strong> Player and away totals are live; events, birthdays, news and game statistics use clearly marked sample content until data is imported.</span><span class="sample-badge">Sample content</span></div>
+    <section class="command-hero" aria-label="${esc(context.alliance.name)} command centre"><div class="command-copy"><div class="command-kicker">Alliance intelligence</div><h2 class="command-title">${esc(context.alliance.name)}<span class="gold">Command Centre</span></h2><p class="command-sub">Events, member activity and the latest game performance in one place.</p></div><div class="command-art">${commandArtwork}</div></section>
     <div class="snapshot-grid">
       <div class="snapshot-card"><span>Active players</span><strong>${active}</strong><small>${former} former player${former===1?"":"s"}</small></div>
       <div class="snapshot-card"><span>Alliance power</span><strong>6.42B</strong><small class="positive">↑ 1.8% this week · Sample</small></div>
@@ -69,14 +49,15 @@ export async function renderUiV2Console(env:UiV2Env,context:UiV2Context){
       <div class="snapshot-card"><span>Weekly VS</span><strong>31.6B</strong><small class="positive">Leading by 1.8B · Sample</small></div>
     </div>
     <section class="dashboard-section">
-      <div class="section-head"><div><h2>What’s happening</h2><p>News, events and member availability in one view.</p></div></div>
-      <div class="life-grid">
-        <article class="dashboard-card news-card"><div class="card-top"><span class="card-type">Alliance news</span><span class="sample-badge">Sample</span></div><div class="news-feature"><span class="news-date">Leadership update</span><h3>Welcome to the new alliance dashboard</h3><p>Important announcements will live here, with the newest story given prominence and older updates kept close at hand.</p></div><div class="news-list"><div class="news-row"><time>Today</time><strong>Season planning information added</strong></div><div class="news-row"><time>Yesterday</time><strong>Desert Storm team selection reminder</strong></div></div></article>
-        <div class="side-stack">
-          <article class="dashboard-card"><div class="card-top"><h3>Upcoming events</h3><span class="sample-badge">Sample</span></div><div class="event-list"><div class="event-row"><div class="date-tile"><strong>18</strong><span>Sep</span></div><div class="row-copy"><strong>VS · Hero Advancement</strong><span>Daily target closes at reset</span></div><span class="row-state">Today</span></div><div class="event-row"><div class="date-tile"><strong>19</strong><span>Sep</span></div><div class="row-copy"><strong>Shield reminder</strong><span>Protect before enemy buster</span></div><span class="row-state warning">21:00</span></div><div class="event-row"><div class="date-tile"><strong>20</strong><span>Sep</span></div><div class="row-copy"><strong>Desert Storm</strong><span>Selected team check-in</span></div><span class="row-state">20:00</span></div></div></article>
-          <article class="dashboard-card"><div class="card-top"><h3>Birthdays</h3><span class="sample-badge">Sample</span></div><div class="people-list"><div class="person-row"><div class="date-tile"><strong>24</strong><span>Sep</span></div><div class="row-copy"><strong>Example Player</strong><span>Birthday coming up</span></div><span class="row-state">6 days</span></div><div class="person-row"><div class="date-tile"><strong>03</strong><span>Oct</span></div><div class="row-copy"><strong>Another Player</strong><span>Birthday coming up</span></div><span class="row-state">15 days</span></div></div></article>
-          <article class="dashboard-card"><div class="card-top"><h3>Players away</h3>${context.user.canManageAway?'<a class="section-link" href="/ui-v2/away">Manage →</a>':""}</div><div class="people-list">${awayRows}</div></article>
-        </div>
+      <div class="section-head"><div><h2>What’s happening</h2><p>Upcoming events first, with the latest alliance and member updates alongside.</p></div></div>
+      <div class="happening-grid">
+        <article class="dashboard-card events-card"><div class="card-top"><h3>Upcoming events</h3><span class="sample-badge">Sample</span></div><div class="event-list"><div class="event-row"><div class="date-tile"><strong>18</strong><span>Sep</span></div><div class="row-copy"><strong>VS · Hero Advancement</strong><span>Daily target closes at reset</span></div><span class="row-state">Today</span></div><div class="event-row"><div class="date-tile"><strong>19</strong><span>Sep</span></div><div class="row-copy"><strong>Shield reminder</strong><span>Protect before enemy buster</span></div><span class="row-state warning">21:00</span></div><div class="event-row"><div class="date-tile"><strong>20</strong><span>Sep</span></div><div class="row-copy"><strong>Desert Storm</strong><span>Selected team check-in</span></div><span class="row-state">20:00</span></div><div class="event-row"><div class="date-tile"><strong>21</strong><span>Sep</span></div><div class="row-copy"><strong>Ghost Ops</strong><span>Alliance participation window</span></div><span class="row-state">18:30</span></div></div></article>
+        <article class="dashboard-card news-card compact-news"><div class="card-top"><span class="card-type">Alliance news</span><span class="sample-badge">Sample</span></div><div class="news-feature"><span class="news-date">Alliance update</span><h3>Season planning information added</h3><p>Important announcements will appear here without overpowering the event schedule.</p></div><div class="news-list"><div class="news-row"><time>Yesterday</time><strong>Desert Storm selection reminder</strong></div><div class="news-row"><time>Mon</time><strong>Weekly alliance targets published</strong></div></div></article>
+      </div>
+      <div class="community-grid${discordInvite?"":" two"}">
+        <article class="dashboard-card"><div class="card-top"><h3>Birthdays</h3><span class="sample-badge">Sample</span></div><div class="people-list"><div class="person-row"><div class="date-tile"><strong>24</strong><span>Sep</span></div><div class="row-copy"><strong>Example Player</strong><span>Birthday coming up</span></div><span class="row-state">6 days</span></div></div></article>
+        <article class="dashboard-card"><div class="card-top"><h3>Players away</h3></div><div class="people-list">${awayRows}</div></article>
+        ${discordInvite?`<article class="dashboard-card discord-card"><span class="discord-mark">Alliance community</span><h3>Join us on Discord</h3><p>Chat with the alliance, follow announcements and join the conversation.</p><a class="discord-join" href="${esc(discordInvite)}" target="_blank" rel="noopener">Join our Discord →</a></article>`:""}
       </div>
     </section>
     <section class="dashboard-section">
@@ -86,7 +67,6 @@ export async function renderUiV2Console(env:UiV2Env,context:UiV2Context){
         <article class="dashboard-card game-card"><span class="card-type">Desert Storm</span><h3>Next battle</h3><span class="game-subtitle">Saturday · 20:00</span><div class="game-score"><strong>19/20</strong><span>Players<br>selected</span></div><div class="progress"><span style="width:95%"></span></div><div class="game-facts"><div class="game-fact"><span>Confirmed</span><strong>17</strong></div><div class="game-fact"><span>Last result</span><strong class="positive">Victory</strong></div></div><span class="game-action">View team →</span></article>
         <article class="dashboard-card game-card"><span class="card-type">Alliance Train</span><h3>Last 7 days</h3><span class="game-subtitle">Participation overview</span><div class="game-score"><strong>84</strong><span>Total seats<br>used</span></div><div class="progress"><span style="width:84%"></span></div><div class="game-facts"><div class="game-fact"><span>Average per day</span><strong>12</strong></div><div class="game-fact"><span>Top conductor</span><strong>Example Player</strong></div></div><span class="game-action">Open Train details →</span></article>
       </div>
-    </section>
-    ${management?`<section class="dashboard-section"><div class="section-head"><div><h2>Manage the alliance</h2><p>Only tools available to your account are shown.</p></div><span class="sample-badge">${guild?`Discord · ${esc(guild.guild_name)}`:"Discord not connected"}</span></div><div class="manage-grid">${management}</div></section>`:""}`;
+    </section>`;
   return uiV2Html(renderUiV2FrontShell(context,{title:"Command Centre",body,activePath:"/ui-v2"}));
 }
