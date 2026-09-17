@@ -33,6 +33,10 @@ const loadoutCss=`<style>
 .performance-grid{grid-template-columns:repeat(auto-fit,minmax(135px,1fr))}.performance-totals{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.loadout-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:14px}.loadout-card{padding:14px;border:1px solid var(--ui-line);border-radius:12px;background:var(--ui-surface-2)}.loadout-card h4{margin:0 0 11px;color:var(--ui-secondary);font-size:.76rem}.loadout-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.overlord-card{margin-top:10px}.overlord-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.performance-editor select{width:100%;min-width:0;padding:11px 12px;border:1px solid var(--ui-line-strong);border-radius:9px;background:var(--ui-surface-2);color:var(--ui-text)}@media(max-width:760px){.loadout-grid{grid-template-columns:1fr}.performance-totals,.overlord-fields{grid-template-columns:1fr}}@media(max-width:430px){.loadout-fields{grid-template-columns:1fr}}
 </style>`;
 
+const tabsCss=`<style>
+.profile-tabs{min-width:0}.profile-tab-list{display:flex;align-items:flex-end;gap:5px;margin-bottom:18px;border-bottom:1px solid var(--ui-line-strong);overflow-x:auto;scrollbar-width:thin}.profile-tab{position:relative;flex:0 0 auto;min-height:48px;padding:12px 17px;border:1px solid transparent;border-bottom:0;border-radius:11px 11px 0 0;background:transparent;color:var(--ui-navigation);font-size:.78rem;font-weight:900;cursor:pointer;transition:color .15s ease,background .15s ease,border-color .15s ease}.profile-tab:hover{color:var(--ui-hover);background:color-mix(in srgb,var(--ui-hover) 7%,transparent)}.profile-tab.active{border-color:var(--ui-line-strong);background:var(--ui-surface-2);color:var(--ui-accent)}.profile-tab.active::after{content:"";position:absolute;left:-1px;right:-1px;bottom:-2px;height:3px;border-radius:3px 3px 0 0;background:var(--ui-hover)}.profile-tab:focus-visible{outline:2px solid var(--ui-hover);outline-offset:-3px}.profile-tab-panel[hidden]{display:none}.profile-tab-panel{animation:profile-tab-in .16s ease}.profile-tab-grid{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(280px,.65fr);gap:14px;align-items:start}.profile-tab-stack{display:grid;gap:14px}@keyframes profile-tab-in{from{opacity:.45;transform:translateY(3px)}to{opacity:1;transform:none}}@media(max-width:850px){.profile-tab-grid{grid-template-columns:1fr}}@media(max-width:600px){.profile-tab-list{margin-inline:-2px}.profile-tab{min-height:44px;padding:11px 13px;font-size:.72rem}}
+</style>`;
+
 function rankOption(rank:RankRow,selected?:number){
   const title=rank.display_name.trim();
   return `<option value="${rank.rank_level}"${rank.rank_level===selected?" selected":""}>R${rank.rank_level}${title.toLowerCase()!==`r${rank.rank_level}`?` · ${esc(title)}`:""}</option>`;
@@ -207,7 +211,10 @@ async function playerPage(request:Request,env:UiV2Env,context:UiV2Context,player
   const noteRows=(notes?.results??[]).map(item=>`<article class="note-item"><form method="post" action="/ui-v2/players/${player.id}/notes/${item.id}/update"><textarea name="note" maxlength="2000" required>${esc(item.note)}</textarea><p class="note-meta">${esc(item.updated_by||item.created_by||"Unknown")} · ${esc(historyTime(item.updated_at))}</p><div class="note-actions"><button class="manage-button secondary" type="submit">Save note</button></div></form><form class="note-actions" method="post" action="/ui-v2/players/${player.id}/notes/${item.id}/delete" onsubmit="return confirm('Delete this private note?');"><button class="manage-button danger" type="submit">Delete</button></form></article>`).join("");
   const notesCard=context.user.canManagePrivateNotes?`<section class="manage-card"><h2>Private Leadership Notes</h2><p>Only authorised Leadership members can view or change these notes.</p><form class="note-new" method="post" action="/ui-v2/players/${player.id}/notes"><textarea name="note" maxlength="2000" required placeholder="Add a private note about this player…"></textarea><button class="manage-button" type="submit">Add note</button></form><div class="notes-list">${noteRows||'<div class="profile-empty">No private notes have been added.</div>'}</div></section>`:"";
   const membership=context.user.canManageMembership?`<section class="manage-card"><h2>Membership</h2><p>${player.is_active?"Moving a player to Former Players preserves their record and history.":"Return this player to the active roster when they rejoin."}</p><div class="membership-actions">${player.is_active?`<form method="post" action="/ui-v2/players/${player.id}/deactivate" onsubmit="return confirm('Move this player to Former Players? A linked non-owner Discord login will be removed.');"><button class="manage-button danger" type="submit">Move to Former Players</button></form><p class="membership-note">A linked non-owner login is disconnected and must be approved again if the player returns.</p>`:`<form method="post" action="/ui-v2/players/${player.id}/reactivate"><button class="manage-button" type="submit">Return to active roster</button></form><p class="membership-note">Discord access is not restored automatically.</p>`}</div></section>`:"";
-  const body=`${managementCss}${profileCss}${loadoutCss}${notice}<div class="profile-layout"><div class="profile-stack">${details}${performanceCard}${notesCard}</div><aside class="profile-stack">${account}${historyCard}${membership}</aside></div>`;
+  const notesTab=notesCard?`<button class="profile-tab" type="button" role="tab" aria-selected="false" aria-controls="leadership-notes" data-profile-tab="leadership-notes" tabindex="-1">Leadership Notes</button>`:"";
+  const notesPanel=notesCard?`<section class="profile-tab-panel" id="leadership-notes" role="tabpanel" data-profile-panel hidden>${notesCard}</section>`:"";
+  const tabsScript=`<script>(()=>{const tabs=[...document.querySelectorAll('[data-profile-tab]')],panels=[...document.querySelectorAll('[data-profile-panel]')];if(!tabs.length)return;const available=new Set(tabs.map(tab=>tab.dataset.profileTab));const activate=(id,focus=false)=>{const selected=available.has(id)?id:'player-details';tabs.forEach(tab=>{const active=tab.dataset.profileTab===selected;tab.classList.toggle('active',active);tab.setAttribute('aria-selected',String(active));tab.tabIndex=active?0:-1;if(active&&focus)tab.focus()});panels.forEach(panel=>panel.hidden=panel.id!==selected)};tabs.forEach((tab,index)=>{tab.addEventListener('click',()=>{const id=tab.dataset.profileTab;history.replaceState(null,'','#'+id);activate(id)});tab.addEventListener('keydown',event=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;event.preventDefault();const next=event.key==='Home'?0:event.key==='End'?tabs.length-1:event.key==='ArrowRight'?(index+1)%tabs.length:(index-1+tabs.length)%tabs.length;const id=tabs[next].dataset.profileTab;history.replaceState(null,'','#'+id);activate(id,true)})});window.addEventListener('hashchange',()=>activate(location.hash.slice(1)));activate(location.hash.slice(1))})();</script>`;
+  const body=`${managementCss}${profileCss}${loadoutCss}${tabsCss}${notice}<div class="profile-tabs"><div class="profile-tab-list" role="tablist" aria-label="Player profile sections"><button class="profile-tab active" type="button" role="tab" aria-selected="true" aria-controls="player-details" data-profile-tab="player-details">Player Details</button><button class="profile-tab" type="button" role="tab" aria-selected="false" aria-controls="roster-performance" data-profile-tab="roster-performance" tabindex="-1">Roster Performance</button><button class="profile-tab" type="button" role="tab" aria-selected="false" aria-controls="discord-account" data-profile-tab="discord-account" tabindex="-1">Discord &amp; Account</button>${notesTab}</div><section class="profile-tab-panel" id="player-details" role="tabpanel" data-profile-panel><div class="profile-tab-grid"><div>${details}</div>${membership?`<aside>${membership}</aside>`:""}</div></section><section class="profile-tab-panel" id="roster-performance" role="tabpanel" data-profile-panel hidden>${performanceCard}</section><section class="profile-tab-panel" id="discord-account" role="tabpanel" data-profile-panel hidden><div class="profile-tab-grid"><div>${account}</div><aside>${historyCard}</aside></div></section>${notesPanel}</div>${tabsScript}`;
   return uiV2Html(renderUiV2Shell(context,{eyebrow:`Player #${player.id}`,title:player.display_name,description:"Manage the player record, membership and linked account in one place.",body,activePath:"/ui-v2/players",back:{href:"/ui-v2/players",label:"Players"}}));
 }
 
@@ -237,7 +244,7 @@ async function updatePerformance(request:Request,env:UiV2Env,context:UiV2Context
   const [form,maxOverlord]=await Promise.all([request.formData(),getPlayerMaxOverlordLevel(env)]),strength=parsePerformancePower(form.get("total_strength")),heroes=parsePerformancePower(form.get("total_hero_power"));
   const squads=Array.from({length:4},(_,index)=>{const number=index+1;return{number,power:parsePerformancePower(form.get(`squad_${number}_power`))}}),droneLevel=parseOptionalLevel(form.get("tactical_drone_level"),999);
   const overlordLevel=parseOptionalLevel(form.get("overlord_level"),maxOverlord),overlordSquadRaw=String(form.get("overlord_squad")??"").trim(),overlordSquad=overlordSquadRaw?Number(overlordSquadRaw):null;
-  if(!strength.valid||!heroes.valid||!droneLevel.valid||!overlordLevel.valid||overlordSquad!==null&&(!Number.isInteger(overlordSquad)||overlordSquad<1||overlordSquad>4)||squads.some(squad=>!squad.power.valid))return redirect(request,`/ui-v2/players/${playerId}?error=performance`);
+  if(!strength.valid||!heroes.valid||!droneLevel.valid||!overlordLevel.valid||overlordSquad!==null&&(!Number.isInteger(overlordSquad)||overlordSquad<1||overlordSquad>4)||squads.some(squad=>!squad.power.valid))return redirect(request,`/ui-v2/players/${playerId}?error=performance#roster-performance`);
   const [player,old,oldSquads,oldDrone,oldOverlord]=await Promise.all([
     loadStoredPlayer(env,playerId),
     env.DB.prepare("SELECT player_power total_strength,total_hero_power FROM players WHERE id=?").bind(playerId).first<PlayerPerformance>(),
@@ -256,7 +263,7 @@ async function updatePerformance(request:Request,env:UiV2Env,context:UiV2Context
   statements.push(env.DB.prepare("INSERT INTO player_roster_snapshots (player_id,total_strength,squad_1_power,squad_2_power,squad_3_power,squad_4_power,total_hero_power,recorded_by_account_id,source) VALUES (?,?,?,?,?,?,?,?,'manual')").bind(playerId,strength.value,squads[0].power.value,squads[1].power.value,squads[2].power.value,squads[3].power.value,heroes.value,context.user.accountId));
   statements.push(auditStatement(env,context,"player.performance_updated","player",String(playerId),{...old,squads:oldSquads.results??[],tactical_drone:oldDrone??null,overlord:oldOverlord??null},next,{update_source:"manual"}));
   await env.DB.batch(statements);
-  return redirect(request,`/ui-v2/players/${playerId}?saved=performance`);
+  return redirect(request,`/ui-v2/players/${playerId}?saved=performance#roster-performance`);
 }
 
 async function changeMembership(request:Request,env:UiV2Env,context:UiV2Context,playerId:number,action:"deactivate"|"reactivate"){
@@ -264,7 +271,7 @@ async function changeMembership(request:Request,env:UiV2Env,context:UiV2Context,
   const actor=await playerActor(request,env);
   if(!actor)return redirect(request,"/login");
   const result=action==="deactivate"?await deactivatePlayerMembership(request,env,actor,playerId):await reactivatePlayerMembership(request,env,actor,playerId);
-  return result??redirect(request,`/ui-v2/players/${playerId}?saved=${action}d`);
+  return result??redirect(request,`/ui-v2/players/${playerId}?saved=${action}d#player-details`);
 }
 
 async function disconnectAccount(request:Request,env:UiV2Env,context:UiV2Context,playerId:number){
@@ -272,7 +279,7 @@ async function disconnectAccount(request:Request,env:UiV2Env,context:UiV2Context
   const actor=await playerActor(request,env);
   if(!actor)return redirect(request,"/login");
   const result=await disconnectPlayerLogin(request,env,actor,playerId);
-  return result??redirect(request,`/ui-v2/players/${playerId}?saved=disconnected`);
+  return result??redirect(request,`/ui-v2/players/${playerId}?saved=disconnected#discord-account`);
 }
 
 async function changeLoginAccess(request:Request,env:UiV2Env,context:UiV2Context,playerId:number,enable:boolean){
@@ -280,18 +287,18 @@ async function changeLoginAccess(request:Request,env:UiV2Env,context:UiV2Context
   const actor=await playerActor(request,env);
   if(!actor)return redirect(request,"/login");
   const result=await setPlayerLoginAccess(request,env,actor,playerId,enable);
-  return result??redirect(request,`/ui-v2/players/${playerId}?saved=login-${enable?"enabled":"disabled"}`);
+  return result??redirect(request,`/ui-v2/players/${playerId}?saved=login-${enable?"enabled":"disabled"}#discord-account`);
 }
 
 async function createNote(request:Request,env:UiV2Env,context:UiV2Context,playerId:number){
   if(!context.user.canManagePrivateNotes||!playerSameOrigin(request,env))return new Response("Forbidden",{status:403});
   if(!await loadStoredPlayer(env,playerId))return new Response("Player not found",{status:404});
   const form=await request.formData(),note=String(form.get("note")||"").trim();
-  if(!note||note.length>2000)return redirect(request,`/ui-v2/players/${playerId}?error=note`);
+  if(!note||note.length>2000)return redirect(request,`/ui-v2/players/${playerId}?error=note#leadership-notes`);
   const inserted=await env.DB.prepare("INSERT INTO player_private_notes (player_id,note,created_by_account_id,updated_by_account_id) VALUES (?,?,?,?)").bind(playerId,note,context.user.accountId,context.user.accountId).run();
   const noteId=String(inserted.meta.last_row_id);
   await auditStatement(env,context,"player.note_created","player_note",noteId,null,{player_id:playerId,note_length:note.length});
-  return redirect(request,`/ui-v2/players/${playerId}?saved=note-created`);
+  return redirect(request,`/ui-v2/players/${playerId}?saved=note-created#leadership-notes`);
 }
 
 async function updateNote(request:Request,env:UiV2Env,context:UiV2Context,playerId:number,noteId:number){
@@ -299,12 +306,12 @@ async function updateNote(request:Request,env:UiV2Env,context:UiV2Context,player
   const old=await env.DB.prepare("SELECT id,note FROM player_private_notes WHERE id=? AND player_id=?").bind(noteId,playerId).first<{id:number;note:string}>();
   if(!old)return new Response("Note not found",{status:404});
   const form=await request.formData(),note=String(form.get("note")||"").trim();
-  if(!note||note.length>2000)return redirect(request,`/ui-v2/players/${playerId}?error=note`);
+  if(!note||note.length>2000)return redirect(request,`/ui-v2/players/${playerId}?error=note#leadership-notes`);
   await env.DB.batch([
     env.DB.prepare("UPDATE player_private_notes SET note=?,updated_by_account_id=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND player_id=?").bind(note,context.user.accountId,noteId,playerId),
     auditStatement(env,context,"player.note_updated","player_note",String(noteId),{player_id:playerId,note_length:old.note.length},{player_id:playerId,note_length:note.length})
   ]);
-  return redirect(request,`/ui-v2/players/${playerId}?saved=note-updated`);
+  return redirect(request,`/ui-v2/players/${playerId}?saved=note-updated#leadership-notes`);
 }
 
 async function deleteNote(request:Request,env:UiV2Env,context:UiV2Context,playerId:number,noteId:number){
@@ -315,7 +322,7 @@ async function deleteNote(request:Request,env:UiV2Env,context:UiV2Context,player
     auditStatement(env,context,"player.note_deleted","player_note",String(noteId),{player_id:playerId,note_length:old.note.length},null),
     env.DB.prepare("DELETE FROM player_private_notes WHERE id=? AND player_id=?").bind(noteId,playerId)
   ]);
-  return redirect(request,`/ui-v2/players/${playerId}?saved=note-deleted`);
+  return redirect(request,`/ui-v2/players/${playerId}?saved=note-deleted#leadership-notes`);
 }
 
 export async function handleUiV2PlayerManagement(request:Request,env:UiV2Env,context:UiV2Context):Promise<Response|null>{
