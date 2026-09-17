@@ -86,6 +86,7 @@ const NAV_ITEMS:UiV2NavItem[]=[
   {label:"Dashboard",href:"/ui-v2",section:"Navigation"},
   {label:"Players",href:"/ui-v2/players",section:"Management",anyPermission:["players.edit","players.manage_membership","players.approve_changes","players.manage_protected_rank","players.private_notes","accounts.approve","accounts.manage"]},
   {label:"Away",href:"/ui-v2/away",section:"Operations",anyPermission:["away.manage_all"]},
+  {label:"Weekly Events",href:"/ui-v2/events",section:"Operations",anyPermission:["away.manage_all","vs.manage","ds.manage","settings.manage"]},
   {label:"Backup & Export",href:"/ui-v2/backup",section:"Operations",ownerOnly:true},
   {label:"Access & Permissions",href:"/ui-v2/security",section:"Security",administratorOnly:true},
   {label:"Audit Log",href:"/ui-v2/audit",section:"Security",anyPermission:["audit.view"]},
