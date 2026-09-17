@@ -70,12 +70,23 @@ const finishLogin=async(r:Request,e:Env,c:string,s:string)=>{
         e.DB.prepare("UPDATE accounts SET display_name=?,last_login_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(dn,a.id),
         e.DB.prepare("UPDATE account_identities SET provider_username=?,updated_at=CURRENT_TIMESTAMP WHERE provider='discord' AND provider_subject=?").bind(du.username,du.id)
       ]);
+      const blocked=await e.DB.prepare("SELECT account_id FROM account_security_blocks WHERE account_id=? AND unblocked_at IS NULL LIMIT 1").bind(a.id).first<{account_id:number}>();
+      if(blocked){
+        await e.DB.prepare("UPDATE accounts SET approval_status='disabled',is_active=0,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(a.id).run();
+        a={...a,is_active:0,approval_status:"disabled"};
+      }else if(a.approval_status==="rejected"){
+        await e.DB.batch([
+          e.DB.prepare("UPDATE accounts SET approval_status='pending',is_active=1,rejected_at=NULL,rejection_reason=NULL,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(a.id),
+          e.DB.prepare("INSERT INTO audit_log (public_id,actor_account_id,actor_display_name,action,entity_type,entity_id,source,new_values) VALUES (?,?,?,'account.access_requested','account',?,'discord-oauth',?)").bind(crypto.randomUUID(),a.id,dn,a.public_id,JSON.stringify({approval_status:"pending",discord_username:du.username,retry:true}))
+        ]);
+        a={...a,is_active:1,approval_status:"pending"};
+      }
     }
     const st=await createSession(r,e,a.id),h=new Headers();
     h.append("set-cookie",clear(LOGIN_COOKIE));h.append("set-cookie",sessionCookie(st));
     if(a.approval_status==="pending"&&a.is_active)return redirect("/pending",h);
-    if(a.approval_status==="rejected")return redirect("/access-declined",h);
     if(!a.is_active||a.approval_status==="disabled")return redirect("/access-blocked",h);
+    if(a.approval_status==="rejected")return redirect("/access-declined",h);
     return redirect("/",h);
   }catch(x){console.error(x);return html(loginPage("Discord sign-in failed."),{status:502})}
 };
