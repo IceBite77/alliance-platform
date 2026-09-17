@@ -32,6 +32,24 @@ export default {async fetch(r:Request,e:Env,ctx:ExecutionContext){const u=new UR
     if(legacyGroup)return Response.redirect(new URL(`/ui-v2/security/groups/${legacyGroup[1]}`,r.url),302);
     if(/^\/leadership\/security\/?$/.test(u.pathname))return Response.redirect(new URL("/ui-v2/security",r.url),302);
     if(/^\/leadership\/audit\/?$/.test(u.pathname))return Response.redirect(new URL("/ui-v2/audit",r.url),302);
+    const settingsRedirects:Record<string,string>={
+      "/leadership/settings":"/ui-v2/settings",
+      "/leadership/settings/details":"/ui-v2/settings/details",
+      "/leadership/settings/branding":"/ui-v2/branding",
+      "/leadership/settings/discord":"/ui-v2/settings/discord",
+      "/leadership/settings/ranks":"/ui-v2/ranks",
+      "/leadership/settings/players":"/ui-v2/settings/players",
+      "/settings/alliance":"/ui-v2/settings",
+      "/settings/alliance/details":"/ui-v2/settings/details",
+      "/settings/alliance/branding":"/ui-v2/branding",
+      "/settings/discord":"/ui-v2/settings/discord",
+      "/settings/discord/change":"/ui-v2/settings/discord?action=change",
+      "/settings/discord/disconnect":"/ui-v2/settings/discord?action=disconnect",
+      "/settings/ranks":"/ui-v2/ranks",
+      "/settings/players":"/ui-v2/settings/players"
+    };
+    const legacySettings=settingsRedirects[u.pathname.replace(/\/$/,"")||"/"];
+    if(legacySettings)return Response.redirect(new URL(legacySettings,r.url),302);
   }
   const uiV2=await handleUiV2(r,e);
   if(uiV2)return uiV2;
