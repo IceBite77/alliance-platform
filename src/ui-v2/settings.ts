@@ -17,7 +17,7 @@ const css=`<style>
 </style>`;
 
 const notice=(url:URL)=>url.searchParams.get("saved")?'<div class="settings-notice">Settings saved.</div>':url.searchParams.get("error")?`<div class="settings-notice error">${esc(url.searchParams.get("error"))}</div>`:"";
-const forbidden=(context:UiV2Context,title:string)=>uiV2Html(renderUiV2Shell(context,{eyebrow:"Settings",title,description:"You do not have permission to manage this section.",body:"",activePath:"/ui-v2/settings",back:{href:"/ui-v2",label:"Leadership Console"}}),403);
+const forbidden=(context:UiV2Context,title:string)=>uiV2Html(renderUiV2Shell(context,{eyebrow:"Settings",title,description:"You do not have permission to manage this section.",body:"",activePath:"/ui-v2/settings",back:{href:"/ui-v2/leadership",label:"Leadership Console"}}),403);
 
 async function home(env:UiV2Env,context:UiV2Context){
   if(!context.user.canManageSettings)return forbidden(context,"Alliance Settings");
@@ -29,7 +29,7 @@ async function home(env:UiV2Env,context:UiV2Context){
     context.user.canManageRanks?'<a class="settings-card" href="/ui-v2/ranks"><span>Players</span><h2>Ranks</h2><p>Manage R1–R5 names, colours and future rank artwork.</p><b>→</b></a>':"",
     context.user.canManagePlayerSettings?`<a class="settings-card" href="/ui-v2/settings/players"><span>Player Profiles</span><h2>Player Settings</h2><p>Maximum base level ${esc(values.player_max_base_level||"35")} and Overlord level ${esc(values.player_max_overlord_level||"6")}.</p><b>→</b></a>`:""
   ].join("");
-  return uiV2Html(renderUiV2Shell(context,{eyebrow:"Configuration",title:"Alliance Settings",description:"Everything that defines how this alliance looks, connects and labels itself lives here.",body:`${css}<div class="settings-grid">${cards}</div>`,activePath:"/ui-v2/settings",back:{href:"/ui-v2",label:"Leadership Console"}}));
+  return uiV2Html(renderUiV2Shell(context,{eyebrow:"Configuration",title:"Alliance Settings",description:"Everything that defines how this alliance looks, connects and labels itself lives here.",body:`${css}<div class="settings-grid">${cards}</div>`,activePath:"/ui-v2/settings",back:{href:"/ui-v2/leadership",label:"Leadership Console"}}));
 }
 
 async function detailsPage(request:Request,env:UiV2Env,context:UiV2Context){
