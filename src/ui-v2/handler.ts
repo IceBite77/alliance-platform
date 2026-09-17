@@ -1,22 +1,28 @@
 import {loadUiV2Context,type UiV2Env} from "./context";
+import {renderUiV2Audit} from "./audit";
 import {handleUiV2Branding} from "./branding";
 import {renderUiV2Console} from "./console";
 import {renderUiV2Players} from "./players";
 import {handleUiV2PlayerImport} from "./player_import";
 import {handleUiV2PlayerManagement} from "./player_management";
 import {handleUiV2Ranks} from "./ranks";
+import {handleUiV2Security} from "./security";
 
 export async function handleUiV2(request:Request,env:UiV2Env):Promise<Response|null>{
   const url=new URL(request.url);
   const branding=await handleUiV2Branding(request,env);
   if(branding)return branding;
   const playerManagement=url.pathname.startsWith("/ui-v2/players/import")||url.pathname==="/ui-v2/players/new"||url.pathname==="/ui-v2/players/access"||/^\/ui-v2\/players\/access\/\d+\/(?:approve|reject)$/.test(url.pathname)||/^\/ui-v2\/players\/\d+(?:\/(?:update|deactivate|reactivate|disconnect|login-enable|login-disable|notes)|\/notes\/\d+\/(?:update|delete))?$/.test(url.pathname);
-  const supported=(request.method==="GET"&&(url.pathname==="/ui-v2"||url.pathname==="/ui-v2/players"||url.pathname==="/ui-v2/ranks"||playerManagement))||(request.method==="POST"&&(url.pathname==="/ui-v2/ranks"||playerManagement));
+  const security=url.pathname==="/ui-v2/security"||url.pathname==="/ui-v2/security/groups"||/^\/ui-v2\/security\/(?:groups\/\d+(?:\/(?:delete|permissions|members(?:\/\d+\/remove)?))?|accounts\/\d+\/(?:administrator-add|administrator-remove))$/.test(url.pathname);
+  const supported=(request.method==="GET"&&(url.pathname==="/ui-v2"||url.pathname==="/ui-v2/players"||url.pathname==="/ui-v2/ranks"||url.pathname==="/ui-v2/audit"||playerManagement||security))||(request.method==="POST"&&(url.pathname==="/ui-v2/ranks"||playerManagement||security));
   if(!supported)return null;
 
   const context=await loadUiV2Context(request,env);
   if(!context)return Response.redirect(new URL("/login",request.url),302);
 
+  const securityResponse=await handleUiV2Security(request,env,context);
+  if(securityResponse)return securityResponse;
+  if(request.method==="GET"&&url.pathname==="/ui-v2/audit")return renderUiV2Audit(env,context);
   const playerImport=await handleUiV2PlayerImport(request,env,context);
   if(playerImport)return playerImport;
   const management=await handleUiV2PlayerManagement(request,env,context);

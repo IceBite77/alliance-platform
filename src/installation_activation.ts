@@ -27,6 +27,12 @@ async function activate(r:Request,e:Env,row:ActivationRow){const f=await r.formD
 async function ownerStart(r:Request,e:Env,ctx:ExecutionContext){const f=new FormData();f.set("setup_key",e.SETUP_KEY);const headers=new Headers(r.headers);headers.delete("content-length");headers.set("content-type","application/x-www-form-urlencoded");const body=new URLSearchParams({setup_key:e.SETUP_KEY});return app.fetch(new Request(r.url,{method:"POST",headers,body,redirect:r.redirect}),e as any,ctx)}
 
 export default {async fetch(r:Request,e:Env,ctx:ExecutionContext){const u=new URL(r.url);
+  if(r.method==="GET"){
+    const legacyGroup=u.pathname.match(/^\/leadership\/security\/groups\/(\d+)\/?$/);
+    if(legacyGroup)return Response.redirect(new URL(`/ui-v2/security/groups/${legacyGroup[1]}`,r.url),302);
+    if(/^\/leadership\/security\/?$/.test(u.pathname))return Response.redirect(new URL("/ui-v2/security",r.url),302);
+    if(/^\/leadership\/audit\/?$/.test(u.pathname))return Response.redirect(new URL("/ui-v2/audit",r.url),302);
+  }
   const uiV2=await handleUiV2(r,e);
   if(uiV2)return uiV2;
   const row=await activation(e);
