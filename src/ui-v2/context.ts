@@ -57,6 +57,7 @@ export type UiV2NavItem={
   section:"Navigation"|"Management"|"Operations"|"Security"|"Settings";
   anyPermission?:string[];
   ownerOnly?:boolean;
+  administratorOnly?:boolean;
 };
 
 export type UiV2Context={
@@ -75,7 +76,7 @@ const NAV_ITEMS:UiV2NavItem[]=[
   {label:"Players",href:"/ui-v2/players",section:"Management",anyPermission:["players.edit","players.manage_membership","players.approve_changes","accounts.approve"]},
   {label:"Away",href:"/ui-v2/away",section:"Operations",anyPermission:["away.manage_all"]},
   {label:"Backup & Export",href:"/ui-v2/backup",section:"Operations",ownerOnly:true},
-  {label:"Access & Permissions",href:"/ui-v2/security",section:"Security",anyPermission:["accounts.manage","permissions.manage"]},
+  {label:"Access & Permissions",href:"/ui-v2/security",section:"Security",administratorOnly:true},
   {label:"Audit Log",href:"/ui-v2/audit",section:"Security",anyPermission:["audit.view"]},
   {label:"Settings Home",href:"/ui-v2/settings",section:"Settings",anyPermission:["settings.manage","settings.details","settings.branding","settings.discord","settings.ranks","settings.players"]},
   {label:"Alliance Details",href:"/ui-v2/settings/details",section:"Settings",anyPermission:["settings.manage","settings.details"]},
@@ -91,9 +92,10 @@ const anyPermitted=async(env:UiV2Env,actor:PlayerActor,permissions:string[])=>{
 };
 
 async function permittedNavigation(env:UiV2Env,actor:PlayerActor){
-  const visible:UiV2NavItem[]=[];
+  const visible:UiV2NavItem[]=[],administrator=await playerIsAdministrator(env,actor);
   for(const item of NAV_ITEMS){
     if(item.ownerOnly&&!actor.is_owner)continue;
+    if(item.administratorOnly&&!administrator)continue;
     if(!item.anyPermission){visible.push(item);continue;}
     for(const permission of item.anyPermission){
       if(await playerPermitted(env,actor,permission)){visible.push(item);break;}
@@ -177,8 +179,8 @@ export async function loadUiV2Context(request:Request,env:UiV2Env):Promise<UiV2C
       canManageAccounts,
       canManagePrivateNotes,
       canApproveAccounts,
-      canManageSecurity,
-      canManagePermissions,
+      canManageSecurity:isAdministrator,
+      canManagePermissions:isAdministrator,
       canViewAudit,
       canManageSettings
     },
