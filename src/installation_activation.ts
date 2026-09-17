@@ -1,5 +1,6 @@
 import app from "./branding_transparency";
 import {handleUiV2} from "./ui-v2/handler";
+import {themedErrorResponse} from "./ui-v2/error";
 
 interface Env {
   DB: D1Database;
@@ -52,21 +53,21 @@ export default {async fetch(r:Request,e:Env,ctx:ExecutionContext){const u=new UR
     if(legacySettings)return Response.redirect(new URL(legacySettings,r.url),302);
   }
   const uiV2=await handleUiV2(r,e);
-  if(uiV2)return uiV2;
+  if(uiV2)return themedErrorResponse(r,e,uiV2);
   const row=await activation(e);
   // Databases created before migration 0016 continue normally until the migration is applied.
-  if(!row)return app.fetch(r,e as any,ctx);
+  if(!row)return themedErrorResponse(r,e,await app.fetch(r,e as any,ctx));
   if(row.status!=="active"){
     if(r.method==="GET"&&u.pathname==="/setup")return activationPage(row.installation_id);
     if(r.method==="POST"&&u.pathname==="/setup/activate")return activate(r,e,row);
     if(u.pathname.startsWith("/setup")||u.pathname.startsWith("/auth/discord"))return Response.redirect(new URL("/setup",r.url),302);
-    return app.fetch(r,e as any,ctx);
+    return themedErrorResponse(r,e,await app.fetch(r,e as any,ctx));
   }
   if(r.method==="GET"&&u.pathname==="/setup"){
     // Existing installations with an Owner are allowed through to the normal app redirect.
     const owner=await e.DB.prepare("SELECT id FROM accounts WHERE is_owner=1 LIMIT 1").first();
-    return owner?app.fetch(r,e as any,ctx):ownerPage();
+    return owner?themedErrorResponse(r,e,await app.fetch(r,e as any,ctx)):ownerPage();
   }
   if(r.method==="POST"&&u.pathname==="/setup/discord/start")return ownerStart(r,e,ctx);
-  return app.fetch(r,e as any,ctx);
+  return themedErrorResponse(r,e,await app.fetch(r,e as any,ctx));
 }} satisfies ExportedHandler<Env>;
