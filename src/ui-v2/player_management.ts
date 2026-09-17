@@ -1,5 +1,5 @@
 import {playerActor,playerSameOrigin} from "../player_access";
-import {deactivatePlayerMembership,reactivatePlayerMembership} from "../player_membership";
+import {deactivatePlayerMembership,disconnectPlayerLogin,reactivatePlayerMembership} from "../player_membership";
 import {formatPlayerBirthday,getPlayerMaxBaseLevel,readPlayerProfileForm} from "../player_profile_fields";
 import {loadStoredPlayer} from "../player_store";
 import type {UiV2Context,UiV2Env} from "./context";
@@ -20,7 +20,7 @@ const managementCss=`<style>
 </style>`;
 
 const profileCss=`<style>
-.profile-layout{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(285px,.55fr);gap:14px;align-items:start}.profile-stack{display:grid;gap:14px}.profile-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:17px}.profile-heading h2{margin:0}.member-badge{padding:6px 9px;border-radius:999px;background:color-mix(in srgb,var(--ui-success) 11%,var(--ui-surface-3));color:var(--ui-success);font-size:.68rem;font-weight:900}.member-badge.former{background:color-mix(in srgb,var(--ui-danger) 11%,var(--ui-surface-3));color:var(--ui-danger)}.account-panel{padding:14px;border:1px solid var(--ui-line);border-radius:12px;background:var(--ui-surface-3)}.account-panel strong,.account-panel span{display:block}.account-panel strong{font-size:.86rem}.account-panel span{margin-top:5px;color:var(--ui-muted);font-size:.72rem;line-height:1.45}.account-panel .linked{color:var(--ui-success)}.account-panel .disabled{color:var(--ui-danger)}.history-list{display:grid;gap:8px}.history-row{display:flex;justify-content:space-between;gap:15px;padding:11px 0;border-bottom:1px solid var(--ui-line)}.history-row:last-child{border-bottom:0}.history-row strong{font-size:.78rem}.history-row span{color:var(--ui-muted);font-size:.68rem;text-align:right}.profile-empty{color:var(--ui-muted);font-size:.76rem}.membership-actions{display:grid;gap:10px}.membership-note{margin:0;color:var(--ui-muted);font-size:.72rem;line-height:1.5}@media(max-width:1100px){.profile-layout{grid-template-columns:1fr}}@media(max-width:600px){.profile-heading{align-items:flex-start}.history-row{display:block}.history-row span{margin-top:5px;text-align:left}}
+.profile-layout{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(285px,.55fr);gap:14px;align-items:start}.profile-stack{display:grid;gap:14px}.profile-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:17px}.profile-heading h2{margin:0}.member-badge{padding:6px 9px;border-radius:999px;background:color-mix(in srgb,var(--ui-success) 11%,var(--ui-surface-3));color:var(--ui-success);font-size:.68rem;font-weight:900}.member-badge.former{background:color-mix(in srgb,var(--ui-danger) 11%,var(--ui-surface-3));color:var(--ui-danger)}.account-panel{padding:14px;border:1px solid var(--ui-line);border-radius:12px;background:var(--ui-surface-3)}.account-panel strong,.account-panel span{display:block}.account-panel strong{font-size:.86rem}.account-panel span{margin-top:5px;color:var(--ui-muted);font-size:.72rem;line-height:1.45}.account-panel .linked{color:var(--ui-success)}.account-panel .disabled{color:var(--ui-danger)}.account-actions{margin-top:12px}.account-actions.membership-note{margin-top:12px}.account-actions .manage-button{width:100%}.history-list{display:grid;gap:8px}.history-row{display:flex;justify-content:space-between;gap:15px;padding:11px 0;border-bottom:1px solid var(--ui-line)}.history-row:last-child{border-bottom:0}.history-row strong{font-size:.78rem}.history-row span{color:var(--ui-muted);font-size:.68rem;text-align:right}.profile-empty{color:var(--ui-muted);font-size:.76rem}.membership-actions{display:grid;gap:10px}.membership-note{margin:0;color:var(--ui-muted);font-size:.72rem;line-height:1.5}@media(max-width:1100px){.profile-layout{grid-template-columns:1fr}}@media(max-width:600px){.profile-heading{align-items:flex-start}.history-row{display:block}.history-row span{margin-top:5px;text-align:left}}
 </style>`;
 
 function rankOption(rank:RankRow,selected?:number){
@@ -127,14 +127,15 @@ async function playerPage(request:Request,env:UiV2Env,context:UiV2Context,player
   if(!player)return uiV2Html(renderUiV2Shell(context,{eyebrow:"Players",title:"Player not found",description:"That player record no longer exists.",body:`${managementCss}<a class="manage-back" href="/ui-v2/players">← Players</a>`,activePath:"/ui-v2/players"}),404);
 
   const url=new URL(request.url),saved=url.searchParams.get("saved"),error=url.searchParams.get("error");
-  const notice=saved?`<div class="manage-notice">${saved==="deactivated"?"Player moved to Former Players.":saved==="reactivated"?"Player returned to the active roster.":"Player details saved."}</div>`:error?`<div class="manage-notice error">${error==="duplicate"?"An active player already uses that name.":"Check the player details and try again."}</div>`:"";
+  const notice=saved?`<div class="manage-notice">${saved==="deactivated"?"Player moved to Former Players.":saved==="reactivated"?"Player returned to the active roster.":saved==="disconnected"?"Discord access disconnected. The permanent player record and history were kept.":"Player details saved."}</div>`:error?`<div class="manage-notice error">${error==="duplicate"?"An active player already uses that name.":"Check the player details and try again."}</div>`:"";
   const rankRows=ranks.results??[],historyRows=history.results??[];
   const disabled=context.user.canEditPlayers?"":" disabled";
   const formActions=context.user.canEditPlayers?`<div class="form-actions"><a class="manage-button secondary" href="/ui-v2/players">Cancel</a><button class="manage-button" type="submit">Save changes</button></div>`:"";
   const details=`<section class="manage-card"><div class="profile-heading"><h2>Player details</h2><span class="member-badge${player.is_active?"":" former"}">${player.is_active?"Active member":"Former member"}</span></div><form method="post" action="/ui-v2/players/${player.id}/update"><div class="field-grid"><label class="field full"><span>Player name</span><input name="display_name" maxlength="80" autocomplete="off" required value="${esc(player.display_name)}"${disabled}></label><label class="field"><span>Rank</span><select name="rank" required${disabled}>${rankRows.map(rank=>rankOption(rank,player.rank)).join("")}</select></label><label class="field"><span>Base level</span><input name="base_level" type="number" inputmode="numeric" min="1" max="${maxBase}" value="${player.base_level??""}" placeholder="Not set"${disabled}><small>Current platform maximum: ${maxBase}</small></label><label class="field"><span>Joined</span><input name="joined_at" type="date" value="${player.joined_at??""}"${disabled}></label><label class="field"><span>Birthday</span><input name="birthday" inputmode="numeric" maxlength="5" value="${formatPlayerBirthday(player.birthday_day,player.birthday_month)}" placeholder="DD/MM" pattern="(?:0?[1-9]|[12][0-9]|3[01])\/(?:0?[1-9]|1[0-2])"${disabled}><small>Optional · day and month only</small></label></div>${formActions}</form></section>`;
   const accountState=linked?(linked.is_active&&linked.approval_status==="active"?"linked":"disabled"):"";
   const accountText=linked?`${linked.provider_username?`@${linked.provider_username}`:linked.display_name}${linked.is_owner?" · Owner":""}`:"No Discord account is linked to this player.";
-  const account=`<section class="manage-card"><h2>Discord & account</h2><p>The login remains separate from the permanent player record.</p><div class="account-panel"><strong class="${accountState}">${linked?(accountState==="linked"?"Discord linked":"Account disabled"):"Not linked"}</strong><span>${esc(accountText)}</span></div></section>`;
+  const disconnectAction=linked&&context.user.canManageMembership?(linked.is_owner?`<p class="membership-note account-actions">The Owner’s Discord login is protected and cannot be disconnected here.</p>`:`<form class="account-actions" method="post" action="/ui-v2/players/${player.id}/disconnect" onsubmit="return confirm('Disconnect this Discord login? Their sessions and access groups will be removed, but the player record will be kept.');"><button class="manage-button danger" type="submit">Disconnect Discord</button></form>`):"";
+  const account=`<section class="manage-card"><h2>Discord & account</h2><p>The login remains separate from the permanent player record.</p><div class="account-panel"><strong class="${accountState}">${linked?(accountState==="linked"?"Discord linked":"Account disabled"):"Not linked"}</strong><span>${esc(accountText)}</span>${disconnectAction}</div></section>`;
   const historyMarkup=historyRows.map(item=>`<div class="history-row"><strong>${item.old_rank?`R${item.old_rank} → `:""}R${item.new_rank}</strong><span>${esc(historyTime(item.changed_at))}${item.note?` · ${esc(item.note)}`:""}</span></div>`).join("");
   const historyCard=`<section class="manage-card"><h2>Rank history</h2><p>Promotions and rank changes remain attached to this player.</p><div class="history-list">${historyMarkup||'<div class="profile-empty">No rank changes have been recorded yet.</div>'}</div></section>`;
   const membership=context.user.canManageMembership?`<section class="manage-card"><h2>Membership</h2><p>${player.is_active?"Moving a player to Former Players preserves their record and history.":"Return this player to the active roster when they rejoin."}</p><div class="membership-actions">${player.is_active?`<form method="post" action="/ui-v2/players/${player.id}/deactivate" onsubmit="return confirm('Move this player to Former Players? A linked non-owner Discord login will be removed.');"><button class="manage-button danger" type="submit">Move to Former Players</button></form><p class="membership-note">A linked non-owner login is disconnected and must be approved again if the player returns.</p>`:`<form method="post" action="/ui-v2/players/${player.id}/reactivate"><button class="manage-button" type="submit">Return to active roster</button></form><p class="membership-note">Discord access is not restored automatically.</p>`}</div></section>`:"";
@@ -170,18 +171,27 @@ async function changeMembership(request:Request,env:UiV2Env,context:UiV2Context,
   return result??redirect(request,`/ui-v2/players/${playerId}?saved=${action}d`);
 }
 
+async function disconnectAccount(request:Request,env:UiV2Env,context:UiV2Context,playerId:number){
+  if(!context.user.canManageMembership||!playerSameOrigin(request,env))return new Response("Forbidden",{status:403});
+  const actor=await playerActor(request,env);
+  if(!actor)return redirect(request,"/login");
+  const result=await disconnectPlayerLogin(request,env,actor,playerId);
+  return result??redirect(request,`/ui-v2/players/${playerId}?saved=disconnected`);
+}
+
 export async function handleUiV2PlayerManagement(request:Request,env:UiV2Env,context:UiV2Context):Promise<Response|null>{
   const path=new URL(request.url).pathname;
   if(path==="/ui-v2/players/new")return request.method==="GET"?addPage(request,env,context):request.method==="POST"?createPlayer(request,env,context):new Response("Method not allowed",{status:405});
   if(path==="/ui-v2/players/access")return request.method==="GET"?accessPage(request,env,context):new Response("Method not allowed",{status:405});
   const action=path.match(/^\/ui-v2\/players\/access\/(\d+)\/(approve|reject)$/);
   if(request.method==="POST"&&action&&validId(action[1]))return action[2]==="approve"?approveAccount(request,env,context,Number(action[1])):rejectAccount(request,env,context,Number(action[1]));
-  const profile=path.match(/^\/ui-v2\/players\/(\d+)(?:\/(update|deactivate|reactivate))?$/);
+  const profile=path.match(/^\/ui-v2\/players\/(\d+)(?:\/(update|deactivate|reactivate|disconnect))?$/);
   if(profile&&validId(profile[1])){
     const playerId=Number(profile[1]),profileAction=profile[2];
     if(!profileAction&&request.method==="GET")return playerPage(request,env,context,playerId);
     if(profileAction==="update"&&request.method==="POST")return updatePlayer(request,env,context,playerId);
     if((profileAction==="deactivate"||profileAction==="reactivate")&&request.method==="POST")return changeMembership(request,env,context,playerId,profileAction);
+    if(profileAction==="disconnect"&&request.method==="POST")return disconnectAccount(request,env,context,playerId);
     return new Response("Method not allowed",{status:405});
   }
   return null;

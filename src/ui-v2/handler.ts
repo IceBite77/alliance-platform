@@ -10,7 +10,7 @@ export async function handleUiV2(request:Request,env:UiV2Env):Promise<Response|n
   const url=new URL(request.url);
   const branding=await handleUiV2Branding(request,env);
   if(branding)return branding;
-  const playerManagement=url.pathname.startsWith("/ui-v2/players/import")||url.pathname==="/ui-v2/players/new"||url.pathname==="/ui-v2/players/access"||/^\/ui-v2\/players\/access\/\d+\/(?:approve|reject)$/.test(url.pathname)||/^\/ui-v2\/players\/\d+(?:\/(?:update|deactivate|reactivate))?$/.test(url.pathname);
+  const playerManagement=url.pathname.startsWith("/ui-v2/players/import")||url.pathname==="/ui-v2/players/new"||url.pathname==="/ui-v2/players/access"||/^\/ui-v2\/players\/access\/\d+\/(?:approve|reject)$/.test(url.pathname)||/^\/ui-v2\/players\/\d+(?:\/(?:update|deactivate|reactivate|disconnect))?$/.test(url.pathname);
   const supported=(request.method==="GET"&&(url.pathname==="/ui-v2"||url.pathname==="/ui-v2/players"||url.pathname==="/ui-v2/ranks"||playerManagement))||(request.method==="POST"&&(url.pathname==="/ui-v2/ranks"||playerManagement));
   if(!supported)return null;
 
