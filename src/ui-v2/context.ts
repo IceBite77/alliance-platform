@@ -36,6 +36,8 @@ export type UiV2User={
   canEditPlayers:boolean;
   canManageMembership:boolean;
   canManageProtectedRank:boolean;
+  canManageAccounts:boolean;
+  canManagePrivateNotes:boolean;
   canApproveAccounts:boolean;
   canManageSecurity:boolean;
   canViewAudit:boolean;
@@ -96,7 +98,7 @@ export async function loadUiV2Context(request:Request,env:UiV2Env):Promise<UiV2C
   const playerPermissions=["players.edit","players.manage_membership","players.approve_changes","accounts.approve"];
   const securityPermissions=["accounts.manage","permissions.manage"];
   const settingsPermissions=["settings.manage","settings.details","settings.branding","settings.discord","settings.ranks","settings.players"];
-  const [alliance,settingRows,player,isAdministrator,canManageBranding,canManageRanks,canManagePlayers,canEditPlayers,canManageMembership,canManageProtectedRank,canApproveAccounts,canManageSecurity,canViewAudit,canManageSettings,navigation]=await Promise.all([
+  const [alliance,settingRows,player,isAdministrator,canManageBranding,canManageRanks,canManagePlayers,canEditPlayers,canManageMembership,canManageProtectedRank,canManageAccounts,canManagePrivateNotes,canApproveAccounts,canManageSecurity,canViewAudit,canManageSettings,navigation]=await Promise.all([
     env.DB.prepare("SELECT name,tag,server_number FROM alliance WHERE id=1").first<AllianceRow>(),
     env.DB.prepare("SELECT key,value FROM settings WHERE key LIKE 'theme_%' OR key IN ('platform_name','brand_main_logo','brand_favicon','footer_text','show_rank_names')").all<SettingRow>(),
     actor.player_id
@@ -109,6 +111,8 @@ export async function loadUiV2Context(request:Request,env:UiV2Env):Promise<UiV2C
     playerPermitted(env,actor,"players.edit"),
     playerPermitted(env,actor,"players.manage_membership"),
     playerPermitted(env,actor,"players.manage_protected_rank"),
+    playerPermitted(env,actor,"accounts.manage"),
+    playerPermitted(env,actor,"players.private_notes"),
     playerPermitted(env,actor,"accounts.approve"),
     anyPermitted(env,actor,securityPermissions),
     playerPermitted(env,actor,"audit.view"),
@@ -150,6 +154,8 @@ export async function loadUiV2Context(request:Request,env:UiV2Env):Promise<UiV2C
       canEditPlayers,
       canManageMembership,
       canManageProtectedRank,
+      canManageAccounts,
+      canManagePrivateNotes,
       canApproveAccounts,
       canManageSecurity,
       canViewAudit,
