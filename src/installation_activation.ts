@@ -29,7 +29,7 @@ async function ownerStart(r:Request,e:Env,ctx:ExecutionContext){const f=new Form
 
 export default {async fetch(r:Request,e:Env,ctx:ExecutionContext){const u=new URL(r.url);
   if(r.method==="GET"){
-    if(/^\/leadership\/?$/.test(u.pathname))return Response.redirect(new URL("/ui-v2",r.url),302);
+    if(/^\/leadership\/?$/.test(u.pathname))return Response.redirect(new URL("/ui-v2/leadership",r.url),302);
     const legacyGroup=u.pathname.match(/^\/leadership\/security\/groups\/(\d+)\/?$/);
     if(legacyGroup)return Response.redirect(new URL(`/ui-v2/security/groups/${legacyGroup[1]}`,r.url),302);
     if(/^\/leadership\/security\/?$/.test(u.pathname))return Response.redirect(new URL("/ui-v2/security",r.url),302);
