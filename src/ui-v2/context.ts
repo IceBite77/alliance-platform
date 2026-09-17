@@ -83,7 +83,7 @@ const LEADERSHIP_PERMISSIONS=[
 ];
 
 const NAV_ITEMS:UiV2NavItem[]=[
-  {label:"Leadership Console",href:"/ui-v2",section:"Navigation",anyPermission:LEADERSHIP_PERMISSIONS},
+  {label:"Dashboard",href:"/ui-v2",section:"Navigation"},
   {label:"Players",href:"/ui-v2/players",section:"Management",anyPermission:["players.edit","players.manage_membership","players.approve_changes","players.manage_protected_rank","players.private_notes","accounts.approve","accounts.manage"]},
   {label:"Away",href:"/ui-v2/away",section:"Operations",anyPermission:["away.manage_all"]},
   {label:"Backup & Export",href:"/ui-v2/backup",section:"Operations",ownerOnly:true},
