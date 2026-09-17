@@ -48,31 +48,40 @@ function managementCards(context:UiV2Context,pending:number){
   return cards.join("");
 }
 
-const comingCards=(context:UiV2Context)=>[
-  ["vs","Competition","VS","Battle Centre, performance history and daily contribution tools."],
-  ["storm","Operations","Desert Storm","Selection, participation and performance history."],
-  ["away","Members","Away","Track member availability and support fair leadership decisions."],
-  ["intel","Analysis","Intelligence","Leadership watch, trends and alliance performance insights."],
-  ["train","Alliance","Train","Alliance Train activity and supporting operational tools."],
-  ["backup","Data","Backup & Export","Portable exports and recovery tools for the alliance owner."]
-].map(([name,kicker,title,description])=>name==="away"&&context.user.canManageAway?`<a class="console-card console-card-link" href="/ui-v2/away">${icon("away")}<span class="card-arrow">→</span><span class="card-kicker">${kicker}</span><h3>${title}</h3><p>${description}</p></a>`:name==="backup"&&context.user.isOwner?`<a class="console-card console-card-link" href="/ui-v2/backup">${icon("backup")}<span class="card-arrow">→</span><span class="card-kicker">${kicker}</span><h3>${title}</h3><p>${description}</p></a>`:`<article class="console-card coming-card">${icon(name as Parameters<typeof icon>[0])}<span class="card-kicker">${kicker}</span><h3>${title}</h3><p>${description}</p><span class="coming-badge">Coming later</span></article>`).join("");
+function comingCards(context:UiV2Context){
+  const cards:string[]=[];
+  if(context.user.canManageVs)cards.push(`<article class="console-card coming-card">${icon("vs")}<span class="card-kicker">Competition</span><h3>VS</h3><p>Battle Centre, performance history and daily contribution tools.</p><span class="coming-badge">Coming later</span></article>`);
+  if(context.user.canManageDs)cards.push(`<article class="console-card coming-card">${icon("storm")}<span class="card-kicker">Operations</span><h3>Desert Storm</h3><p>Selection, participation and performance history.</p><span class="coming-badge">Coming later</span></article>`);
+  if(context.user.canManageAway)cards.push(`<a class="console-card console-card-link" href="/ui-v2/away">${icon("away")}<span class="card-arrow">→</span><span class="card-kicker">Members</span><h3>Away</h3><p>Track member availability and support fair leadership decisions.</p></a>`);
+  if(context.user.canViewIntelligence)cards.push(`<article class="console-card coming-card">${icon("intel")}<span class="card-kicker">Analysis</span><h3>Intelligence</h3><p>Leadership watch, trends and alliance performance insights.</p><span class="coming-badge">Coming later</span></article>`);
+  if(context.user.isAdministrator)cards.push(`<article class="console-card coming-card">${icon("train")}<span class="card-kicker">Alliance</span><h3>Train</h3><p>Alliance Train activity and supporting operational tools.</p><span class="coming-badge">Coming later</span></article>`);
+  if(context.user.isOwner)cards.push(`<a class="console-card console-card-link" href="/ui-v2/backup">${icon("backup")}<span class="card-arrow">→</span><span class="card-kicker">Data</span><h3>Backup &amp; Export</h3><p>Portable exports and recovery tools for the alliance owner.</p></a>`);
+  return cards.join("");
+}
 
 export async function renderUiV2Console(env:UiV2Env,context:UiV2Context){
+  if(!context.user.canAccessLeadership)return uiV2Html(renderUiV2Shell(context,{eyebrow:"Leadership",title:"Leadership Console",description:"You do not have permission to access Leadership tools.",body:"",activePath:"/ui-v2"}),403);
   const today=londonToday();
   const [activePlayers,formerPlayers,pendingAccounts,guild,awayResult]=await Promise.all([
-    env.DB.prepare("SELECT COUNT(*) total FROM players WHERE is_active=1").first<CountRow>(),
-    env.DB.prepare("SELECT COUNT(*) total FROM players WHERE is_active=0").first<CountRow>(),
-    env.DB.prepare("SELECT COUNT(*) total FROM accounts WHERE approval_status='pending'").first<CountRow>(),
-    env.DB.prepare("SELECT guild_name FROM discord_guild_connection WHERE id=1 LIMIT 1").first<GuildRow>().catch(()=>null),
-    env.DB.prepare("SELECT p.display_name FROM players p WHERE p.is_active=1 AND EXISTS(SELECT 1 FROM player_away_periods w WHERE w.player_id=p.id AND w.cancelled_at IS NULL AND w.start_date<=? AND (w.end_date IS NULL OR w.end_date>=?)) ORDER BY p.display_name COLLATE NOCASE").bind(today,today).all<AwayRow>()
+    context.user.canManagePlayers?env.DB.prepare("SELECT COUNT(*) total FROM players WHERE is_active=1").first<CountRow>():Promise.resolve(null),
+    context.user.canManagePlayers?env.DB.prepare("SELECT COUNT(*) total FROM players WHERE is_active=0").first<CountRow>():Promise.resolve(null),
+    context.user.canApproveAccounts?env.DB.prepare("SELECT COUNT(*) total FROM accounts WHERE approval_status='pending'").first<CountRow>():Promise.resolve(null),
+    context.user.canManageDiscord?env.DB.prepare("SELECT guild_name FROM discord_guild_connection WHERE id=1 LIMIT 1").first<GuildRow>().catch(()=>null):Promise.resolve(null),
+    context.user.canManageAway?env.DB.prepare("SELECT p.display_name FROM players p WHERE p.is_active=1 AND EXISTS(SELECT 1 FROM player_away_periods w WHERE w.player_id=p.id AND w.cancelled_at IS NULL AND w.start_date<=? AND (w.end_date IS NULL OR w.end_date>=?)) ORDER BY p.display_name COLLATE NOCASE").bind(today,today).all<AwayRow>():Promise.resolve(null)
   ]);
-  const active=Number(activePlayers?.total??0),former=Number(formerPlayers?.total??0),pending=Number(pendingAccounts?.total??0),awayPlayers=awayResult.results??[],away=awayPlayers.length;
-  const management=managementCards(context,pending);
+  const active=Number(activePlayers?.total??0),former=Number(formerPlayers?.total??0),pending=Number(pendingAccounts?.total??0),awayPlayers=awayResult?.results??[],away=awayPlayers.length;
+  const management=managementCards(context,pending),operations=comingCards(context);
   const platformDialog=statusDialog({id:"platform",label:"Platform",state:"Operational",tone:"success",rows:[["Application","Online"],["Database","Connected"],["Interface","Leadership UI v2"]],message:"No platform issues were detected while loading this console."});
   const discordDialog=statusDialog({id:"discord",label:"Discord",state:guild?"Connected":"Needs attention",tone:guild?"success":"warning",rows:[["Connection",guild?"Connected":"Not connected"],["Server",guild?.guild_name||"No server configured"]],message:guild?"The platform has an active Discord server connection.":"Discord features will remain unavailable until a server is connected and verified.",messageTone:guild?undefined:"warning",action:!guild&&context.user.canManageDiscord?{href:"/ui-v2/settings/discord",label:"Open Discord settings"}:undefined});
   const playersDialog=statusDialog({id:"players",label:"Player Records",state:active>0?"Available":"Issue detected",tone:active>0?"success":"danger",rows:[["Active players",String(active)],["Former players",String(former)],["Total records",String(active+former)]],message:active>0?"Player records are available and the active roster contains members.":"No active players were found. Check the roster and player lifecycle settings.",messageTone:active>0?undefined:"danger",action:context.user.canManagePlayers?{href:"/ui-v2/players",label:"Open Players"}:undefined});
   const accessDialog=statusDialog({id:"access",label:"Access Requests",state:pending?"Action required":"Clear",tone:pending?"warning":"success",rows:[["Waiting for approval",String(pending)],["Current state",pending?"Leadership review required":"No requests waiting"]],message:pending?`${pending} Discord ${pending===1?"account is":"accounts are"} waiting to be matched and approved.`:"There are no pending account approvals.",messageTone:pending?"warning":undefined,action:pending&&context.user.canApproveAccounts?{href:"/ui-v2/players/access",label:"Review waiting accounts"}:undefined});
   const awayDialog=statusDialog({id:"away",label:"Players Away",state:away?"Players unavailable":"Clear",tone:away?"warning":"success",rows:[["Away now",String(away)],["Players",awayPlayers.map(player=>player.display_name).join(", ")||"Nobody currently away"]],message:away?`${away} ${away===1?"player is":"players are"} currently recorded as away.`:"There are no active player breaks today.",messageTone:away?"warning":undefined,action:context.user.canManageAway?{href:"/ui-v2/away",label:"Open Away"}:undefined});
-  const body=`${consoleCss}<div class="status-grid">${statusCard("platform","Platform","Online","success")}${statusCard("discord","Discord",guild?.guild_name||"Not connected",guild?"success":"warning")}${statusCard("players","Player records",`${active} active`,active>0?"success":"danger")}${statusCard("away","Players away",away?`${away} away`:"None away",away?"warning":"success")}${statusCard("access","Access requests",pending?`${pending} waiting`:"None waiting",pending?"warning":"success")}</div>${platformDialog}${discordDialog}${playersDialog}${awayDialog}${accessDialog}${management?`<section class="console-section"><div class="section-head"><h2>Management</h2><p>Your day-to-day alliance administration.</p></div><div class="console-grid">${management}</div></section>`:""}<section class="console-section"><div class="section-head"><h2>Alliance Operations</h2><p>Operational tools for availability, events and alliance activity.</p></div><div class="console-grid">${comingCards(context)}</div></section>${statusScript}`;
+  const statusCards=[statusCard("platform","Platform","Online","success")];
+  const statusDialogs=[platformDialog];
+  if(context.user.canManageDiscord){statusCards.push(statusCard("discord","Discord",guild?.guild_name||"Not connected",guild?"success":"warning"));statusDialogs.push(discordDialog)}
+  if(context.user.canManagePlayers){statusCards.push(statusCard("players","Player records",`${active} active`,active>0?"success":"danger"));statusDialogs.push(playersDialog)}
+  if(context.user.canManageAway){statusCards.push(statusCard("away","Players away",away?`${away} away`:"None away",away?"warning":"success"));statusDialogs.push(awayDialog)}
+  if(context.user.canApproveAccounts){statusCards.push(statusCard("access","Access requests",pending?`${pending} waiting`:"None waiting",pending?"warning":"success"));statusDialogs.push(accessDialog)}
+  const body=`${consoleCss}<div class="status-grid">${statusCards.join("")}</div>${statusDialogs.join("")}${management?`<section class="console-section"><div class="section-head"><h2>Management</h2><p>Your day-to-day alliance administration.</p></div><div class="console-grid">${management}</div></section>`:""}${operations?`<section class="console-section"><div class="section-head"><h2>Alliance Operations</h2><p>Operational tools for availability, events and alliance activity.</p></div><div class="console-grid">${operations}</div></section>`:""}${statusScript}`;
   return uiV2Html(renderUiV2Shell(context,{eyebrow:"Leadership",title:"Leadership Console",description:"Manage your alliance, platform access and configuration from one place.",body,activePath:"/ui-v2"}));
 }
