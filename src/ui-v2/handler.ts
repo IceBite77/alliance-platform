@@ -29,6 +29,7 @@ import {handleUiV2DiscordShieldReminders} from "./discord_shield_reminders";
 import {handleUiV2DiscordOrphanAccess} from "./discord_orphan_access";
 import {handleUiV2ImportCentre} from "./import_center";
 import {handleUiV2IntegrationsKeys} from "./integrations_keys";
+import {renderUiV2VsPerformance} from "./vs_performance";
 
 export async function handleUiV2(request:Request,env:UiV2Env):Promise<Response|null>{
   const url=new URL(request.url);
@@ -38,7 +39,7 @@ export async function handleUiV2(request:Request,env:UiV2Env):Promise<Response|n
   const away=url.pathname==="/ui-v2/away"||/^\/ui-v2\/away\/\d+\/(?:update|cancel)$/.test(url.pathname);
   const events=url.pathname==="/ui-v2/events";
   const train=url.pathname==="/ui-v2/train"||url.pathname==="/ui-v2/train/delete";
-  const vs=url.pathname==="/ui-v2/vs";
+  const vs=url.pathname==="/ui-v2/vs"||url.pathname==="/ui-v2/vs/performance";
   const ds=url.pathname.startsWith("/ui-v2/desert-storm");
   const shieldDrops=url.pathname==="/ui-v2/shield-drops"||url.pathname==="/ui-v2/shield-drops/delete";
   const backup=url.pathname==="/ui-v2/backup"||/^\/ui-v2\/backup\/(?:complete|excel|roster)$/.test(url.pathname);
@@ -89,6 +90,7 @@ export async function handleUiV2(request:Request,env:UiV2Env):Promise<Response|n
   if(eventsResponse)return eventsResponse;
   const trainResponse=await handleUiV2Train(request,env,context);
   if(trainResponse)return trainResponse;
+  if(request.method==="GET"&&url.pathname==="/ui-v2/vs/performance")return renderUiV2VsPerformance(env,context);
   const vsResponse=await handleUiV2Vs(request,env,context);
   if(vsResponse)return vsResponse;
   const discordDesertStormResponse=await handleUiV2DiscordDesertStorm(request,env,context);

@@ -110,6 +110,7 @@ const NAV_ITEMS:UiV2NavItem[]=[
   {label:"Away",href:"/ui-v2/away",section:"Management",anyPermission:["away.manage_all"]},
   {label:"Weekly Events",href:"/ui-v2/events",section:"Events",anyPermission:["away.manage_all","vs.manage","ds.manage","settings.manage"]},
   {label:"VS Battle Centre",href:"/ui-v2/vs",section:"Events",anyPermission:["vs.manage"]},
+  {label:"VS Performance",href:"/ui-v2/vs/performance",section:"Analysis",anyPermission:["vs.view","vs.manage"]},
   {label:"Desert Storm",href:"/ui-v2/desert-storm",section:"Events",anyPermission:["ds.manage"]},
   {label:"Alliance Train",href:"/ui-v2/train",section:"Events",anyPermission:["train.manage"]},
   {label:"Shield Drop Watch",href:"/ui-v2/shield-drops",section:"Events",anyPermission:["shield_drops.manage"]},
