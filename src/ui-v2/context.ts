@@ -100,6 +100,7 @@ const NAV_ITEMS:UiV2NavItem[]=[
   {label:"Weekly Events",href:"/ui-v2/events",section:"Operations",anyPermission:["away.manage_all","vs.manage","ds.manage","settings.manage"]},
   {label:"Alliance Train",href:"/ui-v2/train",section:"Operations",anyPermission:["train.manage"]},
   {label:"Shield Drop Watch",href:"/ui-v2/shield-drops",section:"Operations",anyPermission:["shield_drops.manage"]},
+  {label:"Intelligence Centre",href:"/ui-v2/intelligence",section:"Operations",anyPermission:["intelligence.view"]},
   {label:"Backup & Export",href:"/ui-v2/backup",section:"Operations",ownerOnly:true},
   {label:"Access & Permissions",href:"/ui-v2/security",section:"Security",administratorOnly:true},
   {label:"Audit Log",href:"/ui-v2/audit",section:"Security",anyPermission:["audit.view"]},

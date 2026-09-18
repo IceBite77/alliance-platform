@@ -16,6 +16,7 @@ import {handleUiV2Train} from "./train";
 import {handleUiV2Vs} from "./vs";
 import {handleUiV2DesertStorm} from "./desert_storm";
 import {handleUiV2ShieldDrops} from "./shield_drops";
+import {renderUiV2Intelligence} from "./intelligence";
 
 export async function handleUiV2(request:Request,env:UiV2Env):Promise<Response|null>{
   const url=new URL(request.url);
@@ -31,7 +32,7 @@ export async function handleUiV2(request:Request,env:UiV2Env):Promise<Response|n
   const backup=url.pathname==="/ui-v2/backup"||/^\/ui-v2\/backup\/(?:complete|excel|roster)$/.test(url.pathname);
   const security=url.pathname==="/ui-v2/security"||url.pathname==="/ui-v2/security/groups"||url.pathname==="/ui-v2/security/owner-transfer"||/^\/ui-v2\/security\/(?:groups\/\d+(?:\/(?:delete|permissions|ranks|members(?:\/\d+\/remove)?))?|accounts\/\d+\/(?:administrator-add|administrator-remove)|blocks\/\d+\/unblock)$/.test(url.pathname);
   const settings=url.pathname==="/ui-v2/settings"||/^\/ui-v2\/settings\/(?:details|players|discord(?:\/(?:verify|disconnect))?)$/.test(url.pathname);
-  const supported=(request.method==="GET"&&(url.pathname==="/ui-v2"||url.pathname==="/ui-v2/leadership"||url.pathname==="/ui-v2/players"||url.pathname==="/ui-v2/ranks"||url.pathname==="/ui-v2/audit"||away||events||train||vs||ds||shieldDrops||backup||playerManagement||security||settings))||(request.method==="POST"&&(url.pathname==="/ui-v2/ranks"||away||events||train||vs||ds||shieldDrops||backup||playerManagement||security||settings));
+  const supported=(request.method==="GET"&&(url.pathname==="/ui-v2"||url.pathname==="/ui-v2/leadership"||url.pathname==="/ui-v2/intelligence"||url.pathname==="/ui-v2/players"||url.pathname==="/ui-v2/ranks"||url.pathname==="/ui-v2/audit"||away||events||train||vs||ds||shieldDrops||backup||playerManagement||security||settings))||(request.method==="POST"&&(url.pathname==="/ui-v2/ranks"||away||events||train||vs||ds||shieldDrops||backup||playerManagement||security||settings));
   if(!supported)return null;
 
   const context=await loadUiV2Context(request,env);
@@ -62,6 +63,7 @@ export async function handleUiV2(request:Request,env:UiV2Env):Promise<Response|n
   if(management)return management;
   if(request.method==="GET"&&url.pathname==="/ui-v2/players")return renderUiV2Players(env,context,url);
   if(request.method==="GET"&&url.pathname==="/ui-v2/leadership")return renderUiV2Leadership(env,context);
+  if(request.method==="GET"&&url.pathname==="/ui-v2/intelligence")return renderUiV2Intelligence(env,context,url);
   if(url.pathname==="/ui-v2/ranks")return handleUiV2Ranks(request,env,context);
 
   return renderUiV2Console(env,context);
