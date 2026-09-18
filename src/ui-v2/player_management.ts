@@ -5,6 +5,7 @@ import {loadStoredPlayer} from "../player_store";
 import {renderPlayerAwayPanel} from "./away";
 import type {UiV2Context,UiV2Env} from "./context";
 import {esc,renderUiV2Shell,uiV2Html} from "./shell";
+import {syncDiscordPlayerRank} from "./discord_rank_sync";
 
 type RankRow={rank_level:number;display_name:string;colour:string};
 type PendingAccount={id:number;display_name:string;provider_username:string|null;claimed_player_name:string|null};
@@ -99,7 +100,7 @@ async function approveAccount(request:Request,env:UiV2Env,context:UiV2Context,ac
   if(!Number.isInteger(playerId)||playerId<1)return redirect(request,"/ui-v2/players/access?error=player");
   const [account,player,used]=await Promise.all([
     env.DB.prepare("SELECT id,display_name,approval_status FROM accounts WHERE id=? AND approval_status='pending' AND is_active=1 AND is_owner=0").bind(accountId).first<{id:number;display_name:string;approval_status:string}>(),
-    env.DB.prepare("SELECT id,display_name FROM players WHERE id=? AND is_active=1").bind(playerId).first<{id:number;display_name:string}>(),
+    env.DB.prepare("SELECT id,display_name,rank FROM players WHERE id=? AND is_active=1").bind(playerId).first<{id:number;display_name:string;rank:number}>(),
     env.DB.prepare("SELECT id FROM accounts WHERE player_id=? AND id<>?").bind(playerId,accountId).first<{id:number}>()
   ]);
   if(!account||!player)return redirect(request,"/ui-v2/players/access?error=player");
@@ -111,6 +112,7 @@ async function approveAccount(request:Request,env:UiV2Env,context:UiV2Context,ac
   ];
   if(group)statements.splice(1,0,env.DB.prepare("INSERT OR IGNORE INTO account_groups (account_id,group_id,added_by_account_id) VALUES (?,?,?)").bind(accountId,group.id,context.user.accountId));
   await env.DB.batch(statements);
+  try{await syncDiscordPlayerRank(env,playerId,context)}catch(error){console.error("Discord role sync after approval failed",playerId,error)}
   return redirect(request,"/ui-v2/players/access?saved=approved");
 }
 
@@ -257,6 +259,7 @@ async function updatePlayer(request:Request,env:UiV2Env,context:UiV2Context,play
     ];
     if(value.rank!==old.rank)statements.splice(1,0,env.DB.prepare("INSERT INTO player_rank_history (player_id,old_rank,new_rank,changed_by_account_id,note) VALUES (?,?,?,?,?)").bind(playerId,old.rank,value.rank,context.user.accountId,"Rank changed in player profile"));
     await env.DB.batch(statements);
+    if(value.rank!==old.rank)try{await syncDiscordPlayerRank(env,playerId,context)}catch(error){console.error("Automatic Discord rank sync failed",playerId,error)}
     return redirect(request,`/ui-v2/players/${playerId}?saved=1`);
   }catch{return redirect(request,`/ui-v2/players/${playerId}?error=duplicate`)}
 }
