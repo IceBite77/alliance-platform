@@ -7,6 +7,8 @@ export interface UiV2Env {
   APP_URL:string;
   DISCORD_CLIENT_ID?:string;
   DISCORD_BOT_TOKEN?:string;
+  OPENAI_API_KEY?:string;
+  OPENAI_VISION_MODEL?:string;
 }
 
 export type UiV2Alliance={
@@ -107,6 +109,7 @@ const NAV_ITEMS:UiV2NavItem[]=[
   {label:"Intelligence Centre",href:"/ui-v2/intelligence",section:"Operations",anyPermission:["intelligence.view"]},
   {label:"Player Report Card",href:"/ui-v2/report-card",section:"Operations",anyPermission:["intelligence.view"]},
   {label:"Backup & Export",href:"/ui-v2/backup",section:"Operations",ownerOnly:true},
+  {label:"Screenshot Import",href:"/ui-v2/import-centre/screenshots",section:"Operations",ownerOnly:true},
   {label:"Import Centre",href:"/ui-v2/import-centre",section:"Operations",ownerOnly:true},
   {label:"Access & Permissions",href:"/ui-v2/security",section:"Security",administratorOnly:true},
   {label:"Audit Log",href:"/ui-v2/audit",section:"Security",anyPermission:["audit.view"]},

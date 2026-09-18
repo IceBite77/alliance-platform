@@ -2,6 +2,7 @@ import * as XLSX from "xlsx";
 import {playerSameOrigin} from "../player_access";
 import type {UiV2Context,UiV2Env} from "./context";
 import {esc,renderUiV2Shell,uiV2Html} from "./shell";
+import {handleUiV2ScreenshotImport} from "./screenshot_import";
 
 type Player={id:number;display_name:string};
 type VsRow={date:string;challenge:string;playerId:number|null;player:string;points:number|null;fingerprint:string;errors:string[];duplicate:boolean;noScore:boolean};
@@ -125,6 +126,7 @@ async function rollback(request:Request,env:UiV2Env,context:UiV2Context,id:numbe
 
 export async function handleUiV2ImportCentre(request:Request,env:UiV2Env,context:UiV2Context):Promise<Response|null>{
   const path=new URL(request.url).pathname;if(!path.startsWith("/ui-v2/import-centre"))return null;if(!context.user.isOwner)return uiV2Html(renderUiV2Shell(context,{eyebrow:"Data Migration",title:"Import Centre",description:"Only the platform Owner can import or roll back historic alliance data.",body:"",activePath:"/ui-v2/import-centre"}),403);
+  const screenshotResponse=await handleUiV2ScreenshotImport(request,env,context);if(screenshotResponse)return screenshotResponse;
   if(path==="/ui-v2/import-centre"&&request.method==="GET")return home(request,env,context);
   if(path==="/ui-v2/import-centre/player-matching/preview"&&request.method==="POST"){if(!playerSameOrigin(request,env))return new Response("Forbidden",{status:403});const form=await request.formData(),file=form.get("file");if(!(file instanceof File)||!file.size)return home(request,env,context);try{const review=await scanPlayerNames(env,file);return matchingPreview(context,file.name,review.unresolved,review.players)}catch(error){return uiV2Html(renderUiV2Shell(context,{eyebrow:"Data Migration",title:"Player Matching Error",description:error instanceof Error?error.message:"The workbook could not be read.",body:`${css}<a class="ic-button" href="/ui-v2/import-centre">Return to Import Centre</a>`,activePath:"/ui-v2/import-centre"}),400)}}
   if(path==="/ui-v2/import-centre/player-matching/commit"&&request.method==="POST")return commitPlayerMatches(request,env,context);
