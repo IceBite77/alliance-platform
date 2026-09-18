@@ -1,6 +1,7 @@
 import app from "./branding_transparency";
 import {handleUiV2} from "./ui-v2/handler";
 import {themedErrorResponse} from "./ui-v2/error";
+import {runShieldReminders} from "./shield_reminder_scheduler";
 
 interface Env {
   DB: D1Database;
@@ -27,7 +28,7 @@ async function activate(r:Request,e:Env,row:ActivationRow){const f=await r.formD
 
 async function ownerStart(r:Request,e:Env,ctx:ExecutionContext){const f=new FormData();f.set("setup_key",e.SETUP_KEY);const headers=new Headers(r.headers);headers.delete("content-length");headers.set("content-type","application/x-www-form-urlencoded");const body=new URLSearchParams({setup_key:e.SETUP_KEY});return app.fetch(new Request(r.url,{method:"POST",headers,body,redirect:r.redirect}),e as any,ctx)}
 
-export default {async fetch(r:Request,e:Env,ctx:ExecutionContext){const u=new URL(r.url);
+export default {async scheduled(controller:ScheduledController,e:Env,ctx:ExecutionContext){ctx.waitUntil(runShieldReminders(e, new Date(controller.scheduledTime)))},async fetch(r:Request,e:Env,ctx:ExecutionContext){const u=new URL(r.url);
   if(r.method==="GET"){
     if(/^\/leadership\/?$/.test(u.pathname))return Response.redirect(new URL("/ui-v2/leadership",r.url),302);
     const legacyGroup=u.pathname.match(/^\/leadership\/security\/groups\/(\d+)\/?$/);
