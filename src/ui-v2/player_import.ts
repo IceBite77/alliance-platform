@@ -81,8 +81,8 @@ function previewPage(context:UiV2Context,rows:ImportRow[]){
 const audit=(env:UiV2Env,context:UiV2Context,action:string,id:string,oldValues:unknown,newValues:unknown)=>env.DB.prepare("INSERT INTO audit_log (public_id,actor_account_id,actor_display_name,action,entity_type,entity_id,source,old_values,new_values) VALUES (?,?,?,?,?,?,?,?,?)").bind(crypto.randomUUID(),context.user.accountId,context.user.displayName,action,"player",id,"ui-v2-player-import",oldValues===null?null:JSON.stringify(oldValues),JSON.stringify(newValues));
 
 async function commitImport(request:Request,env:UiV2Env,context:UiV2Context){
-  const canScreenshotImport=await playerPermitted(env,{id:context.user.accountId,is_owner:context.user.isOwner?1:0},"screenshot_import.roster");
-  if(!(context.user.canManageMembership||canScreenshotImport)||!playerSameOrigin(request,env))return new Response("Forbidden",{status:403});
+  const actor={id:context.user.accountId,is_owner:context.user.isOwner?1:0},[canScreenshotImport,canFileImport]=await Promise.all([playerPermitted(env,actor,"screenshot_import.roster"),playerPermitted(env,actor,"file_import.roster")]);
+  if(!(context.user.canManageMembership||canScreenshotImport||canFileImport)||!playerSameOrigin(request,env))return new Response("Forbidden",{status:403});
   const form=await request.formData();let rows:ImportPayload[];
   try{rows=JSON.parse(String(form.get("payload")||"[]"))}catch{return uploadPage(context,"The preview data was invalid. Upload the spreadsheet again.")}
   if(!Array.isArray(rows)||!rows.length||rows.length>150)return uploadPage(context,"The preview data was invalid. Upload the spreadsheet again.");
@@ -116,7 +116,8 @@ export async function handleUiV2PlayerImport(request:Request,env:UiV2Env,context
   const path=new URL(request.url).pathname;
   if(!path.startsWith("/ui-v2/players/import"))return null;
   if(path==="/ui-v2/players/import/commit"&&request.method==="POST")return commitImport(request,env,context);
-  if(!context.user.canManageMembership)return uiV2Html(renderUiV2Shell(context,{eyebrow:"Players",title:"Upload Excel Roster",description:"You do not have permission to update the roster.",body:"",activePath:"/ui-v2/players"}),403);
+  const canFileImport=await playerPermitted(env,{id:context.user.accountId,is_owner:context.user.isOwner?1:0},"file_import.roster");
+  if(!context.user.canManageMembership&&!canFileImport)return uiV2Html(renderUiV2Shell(context,{eyebrow:"Players",title:"Upload Excel Roster",description:"You do not have permission to update the roster.",body:"",activePath:"/ui-v2/players"}),403);
   if(path==="/ui-v2/players/import"&&request.method==="GET")return uploadPage(context);
   if(path==="/ui-v2/players/import/template.csv"&&request.method==="GET")return new Response("Player ID,Player Name,Rank,Base Level,Total Strength,Squad 1 Power,Total Hero Power\n,Example Player,R1,35,120000000,42000000,28000000\n",{headers:{"content-type":"text/csv; charset=utf-8","content-disposition":"attachment; filename=player-roster-template.csv","cache-control":"no-store"}});
   if(path==="/ui-v2/players/import/preview"&&request.method==="POST"){

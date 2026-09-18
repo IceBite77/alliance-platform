@@ -70,7 +70,7 @@ export type UiV2User={
 export type UiV2NavItem={
   label:string;
   href:string;
-  section:"Navigation"|"Management"|"Operations"|"Security"|"Settings";
+  section:"Main"|"Management"|"Events"|"Analysis"|"Data"|"Administration";
   anyPermission?:string[];
   ownerOnly?:boolean;
   administratorOnly?:boolean;
@@ -92,38 +92,29 @@ const LEADERSHIP_PERMISSIONS=[
   "players.private_notes","accounts.approve","accounts.manage",
   "away.manage_all","vs.manage","ds.manage","train.manage","shield_drops.manage","intelligence.view","audit.view","settings.manage","settings.details","settings.branding",
   "settings.discord","integrations.manage","settings.ranks","settings.players",
-  "screenshot_import.roster","screenshot_import.vs","screenshot_import.ds"
+  "screenshot_import.roster","screenshot_import.vs","screenshot_import.ds",
+  "file_import.roster","file_import.vs","file_import.ds"
 ];
 
 const NAV_ITEMS:UiV2NavItem[]=[
-  {label:"Front Page",href:"/ui-v2",section:"Navigation"},
-  {label:"My Profile",href:"/ui-v2/my-profile",section:"Navigation"},
-  {label:"Leadership Console",href:"/ui-v2/leadership",section:"Navigation",anyPermission:LEADERSHIP_PERMISSIONS},
+  {label:"Home",href:"/ui-v2",section:"Main"},
+  {label:"My Profile",href:"/ui-v2/my-profile",section:"Main"},
+  {label:"Leadership Console",href:"/ui-v2/leadership",section:"Main",anyPermission:LEADERSHIP_PERMISSIONS},
   {label:"Players",href:"/ui-v2/players",section:"Management",anyPermission:["players.edit","players.manage_membership","players.approve_changes","players.manage_protected_rank","players.private_notes","accounts.approve","accounts.manage"]},
   {label:"Player Change Requests",href:"/ui-v2/player-changes",section:"Management",anyPermission:["players.approve_changes"]},
-  {label:"Away",href:"/ui-v2/away",section:"Operations",anyPermission:["away.manage_all"]},
-  {label:"VS Battle Centre",href:"/ui-v2/vs",section:"Operations",anyPermission:["vs.manage"]},
-  {label:"Desert Storm",href:"/ui-v2/desert-storm",section:"Operations",anyPermission:["ds.manage"]},
-  {label:"Weekly Events",href:"/ui-v2/events",section:"Operations",anyPermission:["away.manage_all","vs.manage","ds.manage","settings.manage"]},
-  {label:"Alliance Train",href:"/ui-v2/train",section:"Operations",anyPermission:["train.manage"]},
-  {label:"Shield Drop Watch",href:"/ui-v2/shield-drops",section:"Operations",anyPermission:["shield_drops.manage"]},
-  {label:"Intelligence Centre",href:"/ui-v2/intelligence",section:"Operations",anyPermission:["intelligence.view"]},
-  {label:"Player Report Card",href:"/ui-v2/report-card",section:"Operations",anyPermission:["intelligence.view"]},
-  {label:"Backup & Export",href:"/ui-v2/backup",section:"Operations",ownerOnly:true},
-  {label:"Screenshot Import",href:"/ui-v2/import-centre/screenshots",section:"Operations",anyPermission:["screenshot_import.roster","screenshot_import.vs","screenshot_import.ds"]},
-  {label:"DS Selection Import",href:"/ui-v2/import-centre/screenshots/ds-selection",section:"Operations",anyPermission:["screenshot_import.ds"]},
-  {label:"DS Results Import",href:"/ui-v2/import-centre/screenshots/ds-results",section:"Operations",anyPermission:["screenshot_import.ds"]},
-  {label:"Total Hero Power Import",href:"/ui-v2/import-centre/screenshots/hero-power",section:"Operations",anyPermission:["screenshot_import.roster"]},
-  {label:"Import Centre",href:"/ui-v2/import-centre",section:"Operations",ownerOnly:true},
-  {label:"Access & Permissions",href:"/ui-v2/security",section:"Security",administratorOnly:true},
-  {label:"Audit Log",href:"/ui-v2/audit",section:"Security",anyPermission:["audit.view"]},
-  {label:"Settings Home",href:"/ui-v2/settings",section:"Settings",anyPermission:["settings.manage","settings.details","settings.branding","settings.discord","integrations.manage","settings.ranks","settings.players"]},
-  {label:"Alliance Details",href:"/ui-v2/settings/details",section:"Settings",anyPermission:["settings.manage","settings.details"]},
-  {label:"Branding",href:"/ui-v2/branding",section:"Settings",anyPermission:["settings.manage","settings.branding"]},
-  {label:"Discord",href:"/ui-v2/settings/discord",section:"Settings",anyPermission:["settings.manage","settings.discord","integrations.manage"]},
-  {label:"Discord Notifications",href:"/ui-v2/settings/discord-notifications",section:"Settings",anyPermission:["settings.manage","settings.discord","integrations.manage"]},
-  {label:"Ranks",href:"/ui-v2/ranks",section:"Settings",anyPermission:["settings.manage","settings.ranks"]},
-  {label:"Player Settings",href:"/ui-v2/settings/players",section:"Settings",anyPermission:["settings.manage","settings.players"]}
+  {label:"Away",href:"/ui-v2/away",section:"Management",anyPermission:["away.manage_all"]},
+  {label:"Weekly Events",href:"/ui-v2/events",section:"Events",anyPermission:["away.manage_all","vs.manage","ds.manage","settings.manage"]},
+  {label:"VS Battle Centre",href:"/ui-v2/vs",section:"Events",anyPermission:["vs.manage"]},
+  {label:"Desert Storm",href:"/ui-v2/desert-storm",section:"Events",anyPermission:["ds.manage"]},
+  {label:"Alliance Train",href:"/ui-v2/train",section:"Events",anyPermission:["train.manage"]},
+  {label:"Shield Drop Watch",href:"/ui-v2/shield-drops",section:"Events",anyPermission:["shield_drops.manage"]},
+  {label:"Intelligence Centre",href:"/ui-v2/intelligence",section:"Analysis",anyPermission:["intelligence.view"]},
+  {label:"Player Report Card",href:"/ui-v2/report-card",section:"Analysis",anyPermission:["intelligence.view"]},
+  {label:"Data Imports",href:"/ui-v2/import-centre",section:"Data",anyPermission:["screenshot_import.roster","screenshot_import.vs","screenshot_import.ds","file_import.roster","file_import.vs","file_import.ds"]},
+  {label:"Backup & Export",href:"/ui-v2/backup",section:"Data",ownerOnly:true},
+  {label:"Access & Permissions",href:"/ui-v2/security",section:"Administration",administratorOnly:true},
+  {label:"Audit Log",href:"/ui-v2/audit",section:"Administration",anyPermission:["audit.view"]},
+  {label:"Settings",href:"/ui-v2/settings",section:"Administration",anyPermission:["settings.manage","settings.details","settings.branding","settings.discord","integrations.manage","settings.ranks","settings.players"]}
 ];
 
 const anyPermitted=async(env:UiV2Env,actor:PlayerActor,permissions:string[])=>{
