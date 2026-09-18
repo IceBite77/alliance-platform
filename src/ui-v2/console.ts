@@ -8,6 +8,7 @@ type WeeklyEventRow={event_name:string;event_time:string|null;note:string|null};
 type PowerSummaryRow={alliance_power:number|null;power_players:number};
 type RankingRow={display_name:string;power:number};
 type BirthdayRow={display_name:string;birthday_month:number;birthday_day:number};
+type TrainRow={driver_name:string;vip_name:string|null};
 
 const WEEKDAYS=["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
 
@@ -53,20 +54,20 @@ const dashboardCss=`<style>
 
 export async function renderUiV2Console(env:UiV2Env,context:UiV2Context){
   const today=londonToday();
-  const [activePlayers,awayResult,settingRows,weeklyEvent,powerSummary,heroRankings,squadRankings,birthday]=await Promise.all([
+  const [activePlayers,awayResult,settingRows,weeklyEvent,powerSummary,heroRankings,squadRankings,birthday,train]=await Promise.all([
     env.DB.prepare("SELECT COUNT(*) total FROM players WHERE is_active=1").first<CountRow>(),
     env.DB.prepare("SELECT p.display_name FROM players p WHERE p.is_active=1 AND EXISTS(SELECT 1 FROM player_away_periods w WHERE w.player_id=p.id AND w.cancelled_at IS NULL AND w.start_date<=? AND (w.end_date IS NULL OR w.end_date>=?)) ORDER BY p.display_name COLLATE NOCASE LIMIT 4").bind(today,today).all<AwayRow>().catch(()=>null),
-    env.DB.prepare("SELECT key,value FROM settings WHERE key IN ('discord_invite_url','train_today_driver','train_today_vip')").all<SettingRow>().catch(()=>null),
+    env.DB.prepare("SELECT key,value FROM settings WHERE key='discord_invite_url'").all<SettingRow>().catch(()=>null),
     env.DB.prepare("SELECT event_name,event_time,note FROM weekly_events WHERE day_of_week=? AND enabled=1 AND TRIM(event_name)<>'' LIMIT 1").bind(londonWeekday()).first<WeeklyEventRow>().catch(()=>null),
     env.DB.prepare("SELECT SUM(player_power) alliance_power,COUNT(player_power) power_players FROM players WHERE is_active=1 AND player_power IS NOT NULL").first<PowerSummaryRow>().catch(()=>null),
     env.DB.prepare("SELECT display_name,total_hero_power power FROM players WHERE is_active=1 AND total_hero_power IS NOT NULL ORDER BY total_hero_power DESC,display_name COLLATE NOCASE LIMIT 10").all<RankingRow>().catch(()=>null),
     env.DB.prepare("SELECT p.display_name,s.power FROM player_squads s JOIN players p ON p.id=s.player_id WHERE p.is_active=1 AND s.squad_number=1 AND s.power IS NOT NULL ORDER BY s.power DESC,p.display_name COLLATE NOCASE LIMIT 20").all<RankingRow>().catch(()=>null),
-    env.DB.prepare("SELECT display_name,birthday_month,birthday_day FROM players WHERE is_active=1 AND birthday_month IS NOT NULL AND birthday_day IS NOT NULL ORDER BY CASE WHEN printf('%02d-%02d',birthday_month,birthday_day)>=strftime('%m-%d','now') THEN 0 ELSE 1 END,printf('%02d-%02d',birthday_month,birthday_day) LIMIT 1").first<BirthdayRow>().catch(()=>null)
+    env.DB.prepare("SELECT display_name,birthday_month,birthday_day FROM players WHERE is_active=1 AND birthday_month IS NOT NULL AND birthday_day IS NOT NULL ORDER BY CASE WHEN printf('%02d-%02d',birthday_month,birthday_day)>=strftime('%m-%d','now') THEN 0 ELSE 1 END,printf('%02d-%02d',birthday_month,birthday_day) LIMIT 1").first<BirthdayRow>().catch(()=>null),
+    context.user.canViewFrontTrain?env.DB.prepare("SELECT d.display_name driver_name,v.display_name vip_name FROM alliance_train_schedule t JOIN players d ON d.id=t.driver_player_id LEFT JOIN players v ON v.id=t.vip_player_id WHERE t.schedule_date=? LIMIT 1").bind(today).first<TrainRow>().catch(()=>null):Promise.resolve(null)
   ]);
   const active=Number(activePlayers?.total??0),awayPlayers=awayResult?.results??[];
   const settings=Object.fromEntries((settingRows?.results??[]).map(row=>[row.key,row.value]));
   const discordInvite=settings.discord_invite_url?.trim()||(context.alliance.tag?.toLowerCase()==="duck"?"https://discord.gg/Cy7Bb4TGr":"");
-  const trainDriver=settings.train_today_driver?.trim()||"",trainVip=settings.train_today_vip?.trim()||"";
   const eventName=weeklyEvent?.event_name?.trim()||"No event scheduled",eventWhen=weeklyEvent?.event_time?.trim()||"Today",eventNote=weeklyEvent?.note?.trim()||"Nothing planned for today";
   const awaySummary=awayPlayers.length?`${awayPlayers.slice(0,2).map(player=>esc(player.display_name)).join(", ")}${awayPlayers.length>2?` +${awayPlayers.length-2}`:""}`:"Nobody currently away";
   const commandArtwork=context.branding.mainLogo?`<img src="/assets/${encodeURIComponent(context.branding.mainLogo)}" alt="${esc(context.alliance.name)} crest">`:`<div class="command-art-fallback">${esc(context.alliance.tag?`[${context.alliance.tag}]`:"AMP")}</div>`;
@@ -83,7 +84,7 @@ export async function renderUiV2Console(env:UiV2Env,context:UiV2Context){
       <div class="snapshot-card"><span>Alliance members</span><strong>${active}</strong><small>Current roster</small></div>
       <div class="snapshot-card${alliancePower===null?" empty":""}"><span>Alliance power</span><strong>${formatPower(alliancePower)}</strong><small>${powerSummary?.power_players?`${powerSummary.power_players} players with power recorded`:"Awaiting roster power data"}</small></div>
       <div class="snapshot-card${averagePower===null?" empty":""}"><span>Average power</span><strong>${formatPower(averagePower)}</strong><small>${averagePower!==null?"Per player with power recorded":"Awaiting roster power data"}</small></div>
-      <div class="snapshot-card${trainDriver?"":" empty"}"><span>Today’s Train</span><strong>${esc(trainDriver||"Not set")}</strong><small>${trainVip?`VIP: ${esc(trainVip)}`:"No driver or VIP configured"}</small></div>
+      ${context.user.canViewFrontTrain?`<div class="snapshot-card${train?"":" empty"}"><span>Today’s Train</span><strong>${esc(train?.driver_name||"Not scheduled")}</strong><small>${train?.vip_name?`VIP: ${esc(train.vip_name)}`:train?"No VIP selected":"No entry for today"}</small></div>`:""}
     </div>
     <section class="dashboard-section">
       <div class="section-head"><div><h2>Game performance</h2><p>The latest alliance activity and competition statistics.</p></div></div>

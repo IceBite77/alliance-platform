@@ -12,6 +12,7 @@ import {handleUiV2PlayerManagement} from "./player_management";
 import {handleUiV2Ranks} from "./ranks";
 import {handleUiV2Security} from "./security";
 import {handleUiV2Settings} from "./settings";
+import {handleUiV2Train} from "./train";
 
 export async function handleUiV2(request:Request,env:UiV2Env):Promise<Response|null>{
   const url=new URL(request.url);
@@ -20,10 +21,11 @@ export async function handleUiV2(request:Request,env:UiV2Env):Promise<Response|n
   const playerManagement=url.pathname.startsWith("/ui-v2/players/import")||url.pathname==="/ui-v2/players/new"||url.pathname==="/ui-v2/players/access"||/^\/ui-v2\/players\/access\/\d+\/(?:approve|reject|block)$/.test(url.pathname)||/^\/ui-v2\/players\/\d+(?:\/(?:update|performance|deactivate|reactivate|disconnect|login-enable|login-disable|notes)|\/notes\/\d+\/(?:update|delete))?$/.test(url.pathname);
   const away=url.pathname==="/ui-v2/away"||/^\/ui-v2\/away\/\d+\/(?:update|cancel)$/.test(url.pathname);
   const events=url.pathname==="/ui-v2/events";
+  const train=url.pathname==="/ui-v2/train"||url.pathname==="/ui-v2/train/delete";
   const backup=url.pathname==="/ui-v2/backup"||/^\/ui-v2\/backup\/(?:complete|excel|roster)$/.test(url.pathname);
   const security=url.pathname==="/ui-v2/security"||url.pathname==="/ui-v2/security/groups"||url.pathname==="/ui-v2/security/owner-transfer"||/^\/ui-v2\/security\/(?:groups\/\d+(?:\/(?:delete|permissions|ranks|members(?:\/\d+\/remove)?))?|accounts\/\d+\/(?:administrator-add|administrator-remove)|blocks\/\d+\/unblock)$/.test(url.pathname);
   const settings=url.pathname==="/ui-v2/settings"||/^\/ui-v2\/settings\/(?:details|players|discord(?:\/(?:verify|disconnect))?)$/.test(url.pathname);
-  const supported=(request.method==="GET"&&(url.pathname==="/ui-v2"||url.pathname==="/ui-v2/leadership"||url.pathname==="/ui-v2/players"||url.pathname==="/ui-v2/ranks"||url.pathname==="/ui-v2/audit"||away||events||backup||playerManagement||security||settings))||(request.method==="POST"&&(url.pathname==="/ui-v2/ranks"||away||events||backup||playerManagement||security||settings));
+  const supported=(request.method==="GET"&&(url.pathname==="/ui-v2"||url.pathname==="/ui-v2/leadership"||url.pathname==="/ui-v2/players"||url.pathname==="/ui-v2/ranks"||url.pathname==="/ui-v2/audit"||away||events||train||backup||playerManagement||security||settings))||(request.method==="POST"&&(url.pathname==="/ui-v2/ranks"||away||events||train||backup||playerManagement||security||settings));
   if(!supported)return null;
 
   const context=await loadUiV2Context(request,env);
@@ -35,6 +37,8 @@ export async function handleUiV2(request:Request,env:UiV2Env):Promise<Response|n
   if(awayResponse)return awayResponse;
   const eventsResponse=await handleUiV2Events(request,env,context);
   if(eventsResponse)return eventsResponse;
+  const trainResponse=await handleUiV2Train(request,env,context);
+  if(trainResponse)return trainResponse;
   const backupResponse=await handleUiV2Backup(request,env,context);
   if(backupResponse)return backupResponse;
   if(request.method==="GET"&&url.pathname==="/ui-v2/audit")return renderUiV2Audit(env,context);
