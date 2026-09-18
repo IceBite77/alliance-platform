@@ -21,6 +21,7 @@ import {handleUiV2SelfProfile} from "./self_profile";
 import {handleUiV2ReportCard} from "./report_card";
 import {handleUiV2DiscordNotifications} from "./discord_notifications";
 import {handleUiV2VsLeadershipReport} from "./vs_leadership_report";
+import {handleUiV2DiscordRosterUpdate} from "./discord_roster_update";
 
 export async function handleUiV2(request:Request,env:UiV2Env):Promise<Response|null>{
   const url=new URL(request.url);
@@ -40,7 +41,8 @@ export async function handleUiV2(request:Request,env:UiV2Env):Promise<Response|n
   const reportCard=url.pathname==="/ui-v2/report-card"||url.pathname==="/ui-v2/report-card/image.svg";
   const discordNotifications=url.pathname==="/ui-v2/settings/discord-notifications"||url.pathname==="/ui-v2/settings/discord-notifications/test"||url.pathname==="/ui-v2/vs/discord";
   const vsLeadershipReport=url.pathname==="/ui-v2/vs/leadership-report"||url.pathname==="/ui-v2/vs/leadership-report/discord";
-  const supported=(request.method==="GET"&&(url.pathname==="/ui-v2"||url.pathname==="/ui-v2/leadership"||url.pathname==="/ui-v2/intelligence"||reportCard||discordNotifications||vsLeadershipReport||url.pathname==="/ui-v2/players"||url.pathname==="/ui-v2/ranks"||url.pathname==="/ui-v2/audit"||selfProfile||away||events||train||vs||ds||shieldDrops||backup||playerManagement||security||settings))||(request.method==="POST"&&(url.pathname==="/ui-v2/ranks"||discordNotifications||vsLeadershipReport||selfProfile||away||events||train||vs||ds||shieldDrops||backup||playerManagement||security||settings));
+  const rosterUpdate=url.pathname==="/ui-v2/discord/roster-update"||url.pathname==="/ui-v2/discord/roster-update/post";
+  const supported=(request.method==="GET"&&(url.pathname==="/ui-v2"||url.pathname==="/ui-v2/leadership"||url.pathname==="/ui-v2/intelligence"||reportCard||discordNotifications||vsLeadershipReport||rosterUpdate||url.pathname==="/ui-v2/players"||url.pathname==="/ui-v2/ranks"||url.pathname==="/ui-v2/audit"||selfProfile||away||events||train||vs||ds||shieldDrops||backup||playerManagement||security||settings))||(request.method==="POST"&&(url.pathname==="/ui-v2/ranks"||discordNotifications||vsLeadershipReport||rosterUpdate||selfProfile||away||events||train||vs||ds||shieldDrops||backup||playerManagement||security||settings));
   if(!supported)return null;
 
   const context=await loadUiV2Context(request,env);
@@ -56,6 +58,8 @@ export async function handleUiV2(request:Request,env:UiV2Env):Promise<Response|n
   if(discordNotificationResponse)return discordNotificationResponse;
   const vsLeadershipReportResponse=await handleUiV2VsLeadershipReport(request,env,context);
   if(vsLeadershipReportResponse)return vsLeadershipReportResponse;
+  const rosterUpdateResponse=await handleUiV2DiscordRosterUpdate(request,env,context);
+  if(rosterUpdateResponse)return rosterUpdateResponse;
   const awayResponse=await handleUiV2Away(request,env,context);
   if(awayResponse)return awayResponse;
   const eventsResponse=await handleUiV2Events(request,env,context);
