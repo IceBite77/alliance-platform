@@ -43,6 +43,9 @@ export type UiV2User={
   canManageVs:boolean;
   canManageDs:boolean;
   canViewIntelligence:boolean;
+  canViewFrontRankings:boolean;
+  canViewFrontShieldDrops:boolean;
+  canViewFrontAwayDetails:boolean;
   canEditPlayers:boolean;
   canManageMembership:boolean;
   canManageProtectedRank:boolean;
@@ -124,7 +127,7 @@ export async function loadUiV2Context(request:Request,env:UiV2Env):Promise<UiV2C
   const playerPermissions=["players.edit","players.manage_membership","players.approve_changes","players.manage_protected_rank","players.private_notes","accounts.approve","accounts.manage"];
   const securityPermissions=["accounts.manage","permissions.manage"];
   const settingsPermissions=["settings.manage","settings.details","settings.branding","settings.discord","integrations.manage","settings.ranks","settings.players"];
-  const [alliance,settingRows,player,isAdministrator,canAccessLeadership,canManageBranding,canManageRanks,canManageDetails,canManageDiscord,canManagePlayerSettings,canManagePlayers,canManageAway,canManageVs,canManageDs,canViewIntelligence,canEditPlayers,canManageMembership,canManageProtectedRank,canManageAccounts,canManagePrivateNotes,canApproveAccounts,canManageSecurity,canManagePermissions,canViewAudit,canManageSettings,navigation]=await Promise.all([
+  const [alliance,settingRows,player,isAdministrator,canAccessLeadership,canManageBranding,canManageRanks,canManageDetails,canManageDiscord,canManagePlayerSettings,canManagePlayers,canManageAway,canManageVs,canManageDs,canViewIntelligence,canViewFrontRankings,canViewFrontShieldDrops,canViewFrontAwayDetails,canEditPlayers,canManageMembership,canManageProtectedRank,canManageAccounts,canManagePrivateNotes,canApproveAccounts,canManageSecurity,canManagePermissions,canViewAudit,canManageSettings,navigation]=await Promise.all([
     env.DB.prepare("SELECT name,tag,server_number FROM alliance WHERE id=1").first<AllianceRow>(),
     env.DB.prepare("SELECT key,value FROM settings WHERE key LIKE 'theme_%' OR key IN ('platform_name','brand_main_logo','brand_favicon','footer_text','show_rank_names')").all<SettingRow>(),
     actor.player_id
@@ -142,6 +145,9 @@ export async function loadUiV2Context(request:Request,env:UiV2Env):Promise<UiV2C
     playerPermitted(env,actor,"vs.manage"),
     playerPermitted(env,actor,"ds.manage"),
     playerPermitted(env,actor,"intelligence.view"),
+    playerPermitted(env,actor,"front.rankings.view"),
+    playerPermitted(env,actor,"front.shield_drops.view"),
+    playerPermitted(env,actor,"front.away_details.view"),
     playerPermitted(env,actor,"players.edit"),
     playerPermitted(env,actor,"players.manage_membership"),
     playerPermitted(env,actor,"players.manage_protected_rank"),
@@ -194,6 +200,9 @@ export async function loadUiV2Context(request:Request,env:UiV2Env):Promise<UiV2C
       canManageVs,
       canManageDs,
       canViewIntelligence,
+      canViewFrontRankings,
+      canViewFrontShieldDrops,
+      canViewFrontAwayDetails,
       canEditPlayers,
       canManageMembership,
       canManageProtectedRank,
