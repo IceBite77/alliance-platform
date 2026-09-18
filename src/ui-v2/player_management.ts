@@ -6,6 +6,7 @@ import {renderPlayerAwayPanel} from "./away";
 import type {UiV2Context,UiV2Env} from "./context";
 import {esc,renderUiV2Shell,uiV2Html} from "./shell";
 import {syncDiscordPlayerRank} from "./discord_rank_sync";
+import {postDiscordRankAnnouncement} from "./discord_rank_announcement";
 
 type RankRow={rank_level:number;display_name:string;colour:string};
 type PendingAccount={id:number;display_name:string;provider_username:string|null;claimed_player_name:string|null};
@@ -259,7 +260,7 @@ async function updatePlayer(request:Request,env:UiV2Env,context:UiV2Context,play
     ];
     if(value.rank!==old.rank)statements.splice(1,0,env.DB.prepare("INSERT INTO player_rank_history (player_id,old_rank,new_rank,changed_by_account_id,note) VALUES (?,?,?,?,?)").bind(playerId,old.rank,value.rank,context.user.accountId,"Rank changed in player profile"));
     await env.DB.batch(statements);
-    if(value.rank!==old.rank)try{await syncDiscordPlayerRank(env,playerId,context)}catch(error){console.error("Automatic Discord rank sync failed",playerId,error)}
+    if(value.rank!==old.rank){try{await syncDiscordPlayerRank(env,playerId,context)}catch(error){console.error("Automatic Discord rank sync failed",playerId,error)}try{await postDiscordRankAnnouncement(env,context,playerId,old.rank,value.rank)}catch(error){console.error("Discord rank announcement failed",playerId,error)}}
     return redirect(request,`/ui-v2/players/${playerId}?saved=1`);
   }catch{return redirect(request,`/ui-v2/players/${playerId}?error=duplicate`)}
 }
