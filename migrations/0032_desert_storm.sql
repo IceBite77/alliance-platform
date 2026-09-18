@@ -1,0 +1,6 @@
+PRAGMA foreign_keys = ON;
+CREATE TABLE ds_events (id INTEGER PRIMARY KEY AUTOINCREMENT,battle_date TEXT NOT NULL UNIQUE,battle_time TEXT,team_a_opponent TEXT NOT NULL,team_b_opponent TEXT NOT NULL,team_a_score INTEGER,team_a_enemy_score INTEGER,team_b_score INTEGER,team_b_enemy_score INTEGER,results_finalised_at TEXT,updated_by_account_id INTEGER,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,FOREIGN KEY(updated_by_account_id) REFERENCES accounts(id) ON DELETE SET NULL);
+CREATE TABLE ds_event_players (event_id INTEGER NOT NULL,player_id INTEGER NOT NULL,team TEXT NOT NULL CHECK(team IN ('A','B')),selection_status TEXT NOT NULL CHECK(selection_status IN ('selected','substitute')),participated INTEGER NOT NULL DEFAULT 0 CHECK(participated IN (0,1)),player_score INTEGER,PRIMARY KEY(event_id,player_id),FOREIGN KEY(event_id) REFERENCES ds_events(id) ON DELETE CASCADE,FOREIGN KEY(player_id) REFERENCES players(id) ON DELETE CASCADE);
+CREATE INDEX idx_ds_events_date ON ds_events(battle_date DESC);
+CREATE INDEX idx_ds_players_event_team ON ds_event_players(event_id,team,selection_status);
+UPDATE settings SET value='32',updated_at=CURRENT_TIMESTAMP WHERE key='schema_version';
