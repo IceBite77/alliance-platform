@@ -35,7 +35,7 @@ function logo(context:UiV2Context){
 }
 
 function navigation(context:UiV2Context,activePath:string|undefined){
-  const sections=["Navigation","Management","Operations","Security","Settings"] as const;
+  const sections=["Main","Management","Events","Analysis","Data","Administration"] as const;
   return sections.map(section=>{
     const items=context.navigation.filter(item=>item.section===section);
     if(!items.length)return "";
@@ -65,7 +65,7 @@ a{color:inherit}
 .header-actions{display:flex;align-items:center;gap:10px}
 .leadership-menu{position:relative}.leadership-menu-button,.menu-button{display:inline-flex;align-items:center;justify-content:center;min-height:39px;padding:9px 14px;border:1px solid var(--ui-line-strong);border-radius:10px;background:var(--ui-surface-3);color:var(--ui-navigation);font-size:.82rem;font-weight:850;text-decoration:none;cursor:pointer;transition:border-color .15s ease,background .15s ease,transform .15s ease}.leadership-menu-button svg{width:15px;height:15px;margin-left:7px;stroke:currentColor;transition:transform .15s ease}.leadership-menu-button[aria-expanded="true"] svg{transform:rotate(180deg)}
 .leadership-menu-button:hover{border-color:var(--ui-hover);box-shadow:0 0 0 1px color-mix(in srgb,var(--ui-hover) 22%,transparent),0 0 20px color-mix(in srgb,var(--ui-hover) 12%,transparent);background:#17243a;transform:translateY(-1px);color:var(--ui-text)}
-.desktop-menu{display:none;position:absolute;z-index:20;right:0;top:calc(100% + 9px);width:270px;padding:9px;border:1px solid var(--ui-line-strong);border-radius:13px;background:var(--ui-surface);box-shadow:0 22px 55px rgba(0,0,0,.45);text-align:left}.desktop-menu.open{display:block}.menu-section+.menu-section{margin-top:7px;padding-top:7px;border-top:1px solid var(--ui-line)}.menu-section-label{display:block;padding:5px 9px;color:var(--ui-muted);font-size:.62rem;font-weight:900;letter-spacing:.09em;text-transform:uppercase}.desktop-menu a{display:block;padding:9px;border-radius:8px;color:var(--ui-navigation);font-size:.8rem;font-weight:780;text-decoration:none}.desktop-menu a:hover,.desktop-menu a.current{background:var(--ui-surface-3);color:var(--ui-hover)}.menu-signout{margin-top:7px;padding-top:7px;border-top:1px solid var(--ui-line)}
+.desktop-menu{display:none;position:absolute;z-index:20;right:0;top:calc(100% + 9px);width:min(560px,calc(100vw - 32px));padding:12px;border:1px solid var(--ui-line-strong);border-radius:13px;background:var(--ui-surface);box-shadow:0 22px 55px rgba(0,0,0,.45);text-align:left}.desktop-menu.open{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 14px}.desktop-menu .menu-section{min-width:0}.menu-section-label{display:block;padding:5px 9px;color:var(--ui-muted);font-size:.62rem;font-weight:900;letter-spacing:.09em;text-transform:uppercase}.desktop-menu a{display:block;padding:9px;border-radius:8px;color:var(--ui-navigation);font-size:.8rem;font-weight:780;text-decoration:none}.desktop-menu a:hover,.desktop-menu a.current{background:var(--ui-surface-3);color:var(--ui-hover)}.menu-signout{grid-column:1/-1;margin-top:3px;padding-top:8px;border-top:1px solid var(--ui-line)}
 .menu-button{display:none;width:42px;padding:9px;cursor:pointer}
 .menu-button:hover{border-color:var(--ui-hover);color:var(--ui-hover)}
 .menu-button svg{width:20px;height:20px;stroke:currentColor}
