@@ -1,4 +1,4 @@
-import {playerSameOrigin} from "../player_access";
+import {playerPermitted,playerSameOrigin} from "../player_access";
 import type {UiV2Context,UiV2Env} from "./context";
 import {esc,renderUiV2Shell,uiV2Html} from "./shell";
 
@@ -70,7 +70,7 @@ async function validatedPreview(request:Request,env:UiV2Env,context:UiV2Context)
 export async function handleUiV2HeroPowerScreenshot(request:Request,env:UiV2Env,context:UiV2Context):Promise<Response|null>{
   const path=new URL(request.url).pathname;
   if(!path.startsWith("/ui-v2/import-centre/screenshots/hero-power"))return null;
-  if(!context.user.isOwner)return new Response("Forbidden",{status:403});
+  if(!await playerPermitted(env,{id:context.user.accountId,is_owner:context.user.isOwner?1:0},"screenshot_import.roster"))return new Response("Forbidden",{status:403});
   if(path==="/ui-v2/import-centre/screenshots/hero-power"&&request.method==="GET")return uploadPage(context,!env.OPENAI_API_KEY?'<div class="hp-notice bad">Screenshot reading needs an OpenAI API key.</div>':"");
   if(path==="/ui-v2/import-centre/screenshots/hero-power/extract"&&request.method==="POST"){
     if(!playerSameOrigin(request,env))return new Response("Forbidden",{status:403});
