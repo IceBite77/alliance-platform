@@ -50,7 +50,7 @@ function managementCards(context:UiV2Context,pending:number){
 
 function comingCards(context:UiV2Context){
   const cards:string[]=[];
-  if(context.user.canManageVs)cards.push(`<article class="console-card coming-card">${icon("vs")}<span class="card-kicker">Competition</span><h3>VS</h3><p>Battle Centre, performance history and daily contribution tools.</p><span class="coming-badge">Coming later</span></article>`);
+  if(context.user.canManageVs)cards.push(`<a class="console-card console-card-link" href="/ui-v2/vs">${icon("vs")}<span class="card-arrow">→</span><span class="card-kicker">Competition</span><h3>VS Battle Centre</h3><p>Enter daily player contributions and review recent results.</p></a>`);
   if(context.user.canManageDs)cards.push(`<article class="console-card coming-card">${icon("storm")}<span class="card-kicker">Operations</span><h3>Desert Storm</h3><p>Selection, participation and performance history.</p><span class="coming-badge">Coming later</span></article>`);
   if(context.user.canManageAway)cards.push(`<a class="console-card console-card-link" href="/ui-v2/away">${icon("away")}<span class="card-arrow">→</span><span class="card-kicker">Members</span><h3>Away</h3><p>Track member availability and support fair leadership decisions.</p></a>`);
   if(context.user.canViewIntelligence)cards.push(`<article class="console-card coming-card">${icon("intel")}<span class="card-kicker">Analysis</span><h3>Intelligence</h3><p>Leadership watch, trends and alliance performance insights.</p><span class="coming-badge">Coming later</span></article>`);

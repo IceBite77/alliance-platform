@@ -9,6 +9,7 @@ type PowerSummaryRow={alliance_power:number|null;power_players:number};
 type RankingRow={display_name:string;power:number};
 type BirthdayRow={display_name:string;birthday_month:number;birthday_day:number};
 type TrainRow={driver_name:string;vip_name:string|null};
+type VsSummaryRow={competition_date:string;challenge_name:string;daily_target:number;total:number;participants:number;hit_target:number};
 
 const WEEKDAYS=["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
 
@@ -54,7 +55,7 @@ const dashboardCss=`<style>
 
 export async function renderUiV2Console(env:UiV2Env,context:UiV2Context){
   const today=londonToday();
-  const [activePlayers,awayResult,settingRows,weeklyEvent,powerSummary,heroRankings,squadRankings,birthday,train]=await Promise.all([
+  const [activePlayers,awayResult,settingRows,weeklyEvent,powerSummary,heroRankings,squadRankings,birthday,train,vsSummary]=await Promise.all([
     env.DB.prepare("SELECT COUNT(*) total FROM players WHERE is_active=1").first<CountRow>(),
     env.DB.prepare("SELECT p.display_name FROM players p WHERE p.is_active=1 AND EXISTS(SELECT 1 FROM player_away_periods w WHERE w.player_id=p.id AND w.cancelled_at IS NULL AND w.start_date<=? AND (w.end_date IS NULL OR w.end_date>=?)) ORDER BY p.display_name COLLATE NOCASE LIMIT 4").bind(today,today).all<AwayRow>().catch(()=>null),
     env.DB.prepare("SELECT key,value FROM settings WHERE key='discord_invite_url'").all<SettingRow>().catch(()=>null),
@@ -63,7 +64,8 @@ export async function renderUiV2Console(env:UiV2Env,context:UiV2Context){
     env.DB.prepare("SELECT display_name,total_hero_power power FROM players WHERE is_active=1 AND total_hero_power IS NOT NULL ORDER BY total_hero_power DESC,display_name COLLATE NOCASE LIMIT 10").all<RankingRow>().catch(()=>null),
     env.DB.prepare("SELECT p.display_name,s.power FROM player_squads s JOIN players p ON p.id=s.player_id WHERE p.is_active=1 AND s.squad_number=1 AND s.power IS NOT NULL ORDER BY s.power DESC,p.display_name COLLATE NOCASE LIMIT 20").all<RankingRow>().catch(()=>null),
     env.DB.prepare("SELECT display_name,birthday_month,birthday_day FROM players WHERE is_active=1 AND birthday_month IS NOT NULL AND birthday_day IS NOT NULL ORDER BY CASE WHEN printf('%02d-%02d',birthday_month,birthday_day)>=strftime('%m-%d','now') THEN 0 ELSE 1 END,printf('%02d-%02d',birthday_month,birthday_day) LIMIT 1").first<BirthdayRow>().catch(()=>null),
-    context.user.canViewFrontTrain?env.DB.prepare("SELECT d.display_name driver_name,v.display_name vip_name FROM alliance_train_schedule t JOIN players d ON d.id=t.driver_player_id LEFT JOIN players v ON v.id=t.vip_player_id WHERE t.schedule_date=? LIMIT 1").bind(today).first<TrainRow>().catch(()=>null):Promise.resolve(null)
+    context.user.canViewFrontTrain?env.DB.prepare("SELECT d.display_name driver_name,v.display_name vip_name FROM alliance_train_schedule t JOIN players d ON d.id=t.driver_player_id LEFT JOIN players v ON v.id=t.vip_player_id WHERE t.schedule_date=? LIMIT 1").bind(today).first<TrainRow>().catch(()=>null):Promise.resolve(null),
+    context.user.canViewVs?env.DB.prepare("SELECT d.competition_date,d.challenge_name,d.daily_target,COALESCE(SUM(s.points),0) total,COUNT(s.player_id) participants,COALESCE(SUM(CASE WHEN s.points>=d.daily_target THEN 1 ELSE 0 END),0) hit_target FROM vs_days d LEFT JOIN vs_scores s ON s.competition_date=d.competition_date GROUP BY d.competition_date ORDER BY d.competition_date DESC LIMIT 1").first<VsSummaryRow>().catch(()=>null):Promise.resolve(null)
   ]);
   const active=Number(activePlayers?.total??0),awayPlayers=awayResult?.results??[];
   const settings=Object.fromEntries((settingRows?.results??[]).map(row=>[row.key,row.value]));
@@ -89,7 +91,7 @@ export async function renderUiV2Console(env:UiV2Env,context:UiV2Context){
     <section class="dashboard-section">
       <div class="section-head"><div><h2>Game performance</h2><p>The latest alliance activity and competition statistics.</p></div></div>
       <div class="game-grid">
-        <article class="dashboard-card game-card"><span class="card-type">VS Battle Centre</span><h3>Alliance contribution</h3><div class="card-empty game-empty"><strong>No VS results yet</strong><span>Results will appear here after the VS Battle Centre is built and data is entered.</span></div></article>
+        ${context.user.canViewVs?`<article class="dashboard-card game-card"><span class="card-type">VS Battle Centre</span><h3>Alliance contribution</h3>${vsSummary?`<span class="game-subtitle">${esc(vsSummary.competition_date)} · ${esc(vsSummary.challenge_name)}</span><div class="game-score"><strong>${formatPower(vsSummary.total)}</strong><span>Our alliance<br>total</span></div><div class="game-facts"><div class="game-fact"><span>Players entered</span><strong>${vsSummary.participants}</strong></div><div class="game-fact"><span>Players over ${formatPower(vsSummary.daily_target)}</span><strong>${vsSummary.hit_target}</strong></div></div><a class="game-action" href="/ui-v2/vs">Open VS details →</a>`:'<div class="card-empty game-empty"><strong>No VS results yet</strong><span>Enter the first competition day in the VS Battle Centre.</span></div>'}</article>`:""}
         <article class="dashboard-card game-card"><span class="card-type">Desert Storm</span><h3>Team A &amp; Team B</h3><div class="card-empty game-empty"><strong>No Desert Storm teams yet</strong><span>Selections and confirmations will appear here when both team tools are ready.</span></div></article>
       </div>
     </section>
