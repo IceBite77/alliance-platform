@@ -22,6 +22,7 @@ import {handleUiV2ReportCard} from "./report_card";
 import {handleUiV2DiscordNotifications} from "./discord_notifications";
 import {handleUiV2VsLeadershipReport} from "./vs_leadership_report";
 import {handleUiV2DiscordRosterUpdate} from "./discord_roster_update";
+import {handleUiV2DiscordDesertStorm} from "./discord_desert_storm";
 
 export async function handleUiV2(request:Request,env:UiV2Env):Promise<Response|null>{
   const url=new URL(request.url);
@@ -68,6 +69,8 @@ export async function handleUiV2(request:Request,env:UiV2Env):Promise<Response|n
   if(trainResponse)return trainResponse;
   const vsResponse=await handleUiV2Vs(request,env,context);
   if(vsResponse)return vsResponse;
+  const discordDesertStormResponse=await handleUiV2DiscordDesertStorm(request,env,context);
+  if(discordDesertStormResponse)return discordDesertStormResponse;
   const dsResponse=await handleUiV2DesertStorm(request,env,context);
   if(dsResponse)return dsResponse;
   const shieldDropsResponse=await handleUiV2ShieldDrops(request,env,context);
