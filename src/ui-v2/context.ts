@@ -110,6 +110,7 @@ const NAV_ITEMS:UiV2NavItem[]=[
   {label:"Player Report Card",href:"/ui-v2/report-card",section:"Operations",anyPermission:["intelligence.view"]},
   {label:"Backup & Export",href:"/ui-v2/backup",section:"Operations",ownerOnly:true},
   {label:"Screenshot Import",href:"/ui-v2/import-centre/screenshots",section:"Operations",ownerOnly:true},
+  {label:"Total Hero Power Import",href:"/ui-v2/import-centre/screenshots/hero-power",section:"Operations",ownerOnly:true},
   {label:"Import Centre",href:"/ui-v2/import-centre",section:"Operations",ownerOnly:true},
   {label:"Access & Permissions",href:"/ui-v2/security",section:"Security",administratorOnly:true},
   {label:"Audit Log",href:"/ui-v2/audit",section:"Security",anyPermission:["audit.view"]},
