@@ -5,6 +5,7 @@ import {esc,renderUiV2Shell,uiV2Html} from "./shell";
 import {handleUiV2ScreenshotImport} from "./screenshot_import";
 import {handleUiV2HeroPowerScreenshot} from "./hero_power_screenshot";
 import {handleUiV2DsSelectionScreenshot} from "./ds_selection_screenshot";
+import {handleUiV2DsResultsScreenshot} from "./ds_results_screenshot";
 
 type Player={id:number;display_name:string};
 type VsRow={date:string;challenge:string;playerId:number|null;player:string;points:number|null;fingerprint:string;errors:string[];duplicate:boolean;noScore:boolean};
@@ -128,6 +129,7 @@ async function rollback(request:Request,env:UiV2Env,context:UiV2Context,id:numbe
 
 export async function handleUiV2ImportCentre(request:Request,env:UiV2Env,context:UiV2Context):Promise<Response|null>{
   const path=new URL(request.url).pathname;if(!path.startsWith("/ui-v2/import-centre"))return null;if(!context.user.isOwner)return uiV2Html(renderUiV2Shell(context,{eyebrow:"Data Migration",title:"Import Centre",description:"Only the platform Owner can import or roll back historic alliance data.",body:"",activePath:"/ui-v2/import-centre"}),403);
+  const dsResultsResponse=await handleUiV2DsResultsScreenshot(request,env,context);if(dsResultsResponse)return dsResultsResponse;
   const dsSelectionResponse=await handleUiV2DsSelectionScreenshot(request,env,context);if(dsSelectionResponse)return dsSelectionResponse;
   const heroPowerResponse=await handleUiV2HeroPowerScreenshot(request,env,context);if(heroPowerResponse)return heroPowerResponse;
   const screenshotResponse=await handleUiV2ScreenshotImport(request,env,context);if(screenshotResponse)return screenshotResponse;
