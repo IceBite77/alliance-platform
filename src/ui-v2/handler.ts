@@ -56,7 +56,7 @@ export async function handleUiV2(request:Request,env:UiV2Env):Promise<Response|n
   const discordOrphanAccess=url.pathname==="/ui-v2/settings/discord-orphan-access";
   const vsLeadershipReport=url.pathname==="/ui-v2/vs/leadership-report"||url.pathname==="/ui-v2/vs/leadership-report/discord";
   const rosterUpdate=url.pathname==="/ui-v2/discord/roster-update"||url.pathname==="/ui-v2/discord/roster-update/post";
-  const supported=(request.method==="GET"&&(url.pathname==="/ui-v2"||url.pathname==="/ui-v2/leadership"||url.pathname==="/ui-v2/intelligence"||reportCard||discordNotifications||discordSetup||discordRankSync||discordShieldReminders||discordOrphanAccess||vsLeadershipReport||rosterUpdate||url.pathname==="/ui-v2/players"||url.pathname==="/ui-v2/ranks"||url.pathname==="/ui-v2/audit"||selfProfile||away||events||train||vs||ds||shieldDrops||backup||importCentre||playerManagement||security||settings||integrationsKeys))||(request.method==="POST"&&(url.pathname==="/ui-v2/ranks"||discordNotifications||discordSetup||discordRankSync||discordShieldReminders||discordOrphanAccess||vsLeadershipReport||rosterUpdate||selfProfile||away||events||train||vs||ds||shieldDrops||backup||importCentre||playerManagement||security||settings||integrationsKeys));
+  const supported=(request.method==="GET"&&(url.pathname==="/ui-v2"||url.pathname==="/ui-v2/home-demo"||url.pathname==="/ui-v2/leadership"||url.pathname==="/ui-v2/intelligence"||reportCard||discordNotifications||discordSetup||discordRankSync||discordShieldReminders||discordOrphanAccess||vsLeadershipReport||rosterUpdate||url.pathname==="/ui-v2/players"||url.pathname==="/ui-v2/ranks"||url.pathname==="/ui-v2/audit"||selfProfile||away||events||train||vs||ds||shieldDrops||backup||importCentre||playerManagement||security||settings||integrationsKeys))||(request.method==="POST"&&(url.pathname==="/ui-v2/ranks"||discordNotifications||discordSetup||discordRankSync||discordShieldReminders||discordOrphanAccess||vsLeadershipReport||rosterUpdate||selfProfile||away||events||train||vs||ds||shieldDrops||backup||importCentre||playerManagement||security||settings||integrationsKeys));
   if(!supported)return null;
 
   const context=await loadUiV2Context(request,env);
@@ -115,5 +115,5 @@ export async function handleUiV2(request:Request,env:UiV2Env):Promise<Response|n
   if(request.method==="GET"&&url.pathname==="/ui-v2/intelligence")return renderUiV2Intelligence(env,context,url);
   if(url.pathname==="/ui-v2/ranks")return handleUiV2Ranks(request,env,context);
 
-  return renderUiV2Console(env,context);
+  return renderUiV2Console(env,context,url.pathname==="/ui-v2/home-demo");
 }
