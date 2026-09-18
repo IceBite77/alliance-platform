@@ -75,7 +75,7 @@ export async function renderUiV2Console(env:UiV2Env,context:UiV2Context){
   const shieldPlayers=shieldSummary?(await env.DB.prepare("SELECT p.display_name,COUNT(*) drop_count FROM shield_drop_incidents i JOIN players p ON p.id=i.player_id WHERE i.war_date=? GROUP BY i.player_id,p.display_name ORDER BY drop_count DESC,p.display_name COLLATE NOCASE LIMIT 8").bind(shieldSummary.war_date).all<ShieldPlayerRow>().catch(()=>null))?.results??[]:[];
   const active=Number(activePlayers?.total??0),awayPlayers=awayResult?.results??[];
   const settings=Object.fromEntries((settingRows?.results??[]).map(row=>[row.key,row.value]));
-  const discordInvite=settings.discord_invite_url?.trim()||(context.alliance.tag?.toLowerCase()==="duck"?"https://discord.gg/Cy7Bb4TGr":"");
+  const discordInvite=settings.discord_invite_url?.trim()||"";
   const eventName=weeklyEvent?.event_name?.trim()||"No event scheduled",eventWhen=weeklyEvent?.event_time?.trim()||"Today",eventNote=weeklyEvent?.note?.trim()||"Nothing planned for today";
   const awaySummary=awayPlayers.length?`${awayPlayers.slice(0,2).map(player=>esc(player.display_name)).join(", ")}${awayPlayers.length>2?` +${awayPlayers.length-2}`:""}`:"Nobody currently away";
   const commandArtwork=context.branding.mainLogo?`<img src="/assets/${encodeURIComponent(context.branding.mainLogo)}" alt="${esc(context.alliance.name)} crest">`:`<div class="command-art-fallback">${esc(context.alliance.tag?`[${context.alliance.tag}]`:"AMP")}</div>`;
