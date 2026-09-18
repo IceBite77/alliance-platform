@@ -28,6 +28,7 @@ import {handleUiV2DiscordRankSync} from "./discord_rank_sync";
 import {handleUiV2DiscordShieldReminders} from "./discord_shield_reminders";
 import {handleUiV2DiscordOrphanAccess} from "./discord_orphan_access";
 import {handleUiV2ImportCentre} from "./import_center";
+import {handleUiV2IntegrationsKeys} from "./integrations_keys";
 
 export async function handleUiV2(request:Request,env:UiV2Env):Promise<Response|null>{
   const url=new URL(request.url);
@@ -44,6 +45,7 @@ export async function handleUiV2(request:Request,env:UiV2Env):Promise<Response|n
   const importCentre=url.pathname.startsWith("/ui-v2/import-centre");
   const security=url.pathname==="/ui-v2/security"||url.pathname==="/ui-v2/security/groups"||url.pathname==="/ui-v2/security/owner-transfer"||/^\/ui-v2\/security\/(?:groups\/\d+(?:\/(?:delete|permissions|ranks|members(?:\/\d+\/remove)?))?|accounts\/\d+\/(?:administrator-add|administrator-remove)|blocks\/\d+\/unblock)$/.test(url.pathname);
   const settings=url.pathname==="/ui-v2/settings"||/^\/ui-v2\/settings\/(?:details|players|discord(?:\/(?:verify|disconnect))?)$/.test(url.pathname);
+  const integrationsKeys=url.pathname.startsWith("/ui-v2/settings/integrations");
   const selfProfile=url.pathname==="/ui-v2/my-profile"||url.pathname==="/ui-v2/my-profile/performance"||url.pathname==="/ui-v2/my-profile/name"||url.pathname==="/ui-v2/player-changes"||/^\/ui-v2\/player-changes\/\d+\/(?:approve|reject)$/.test(url.pathname);
   const reportCard=url.pathname==="/ui-v2/report-card"||url.pathname==="/ui-v2/report-card/image.svg";
   const discordNotifications=url.pathname==="/ui-v2/settings/discord-notifications"||url.pathname==="/ui-v2/settings/discord-notifications/test"||url.pathname==="/ui-v2/vs/discord";
@@ -53,7 +55,7 @@ export async function handleUiV2(request:Request,env:UiV2Env):Promise<Response|n
   const discordOrphanAccess=url.pathname==="/ui-v2/settings/discord-orphan-access";
   const vsLeadershipReport=url.pathname==="/ui-v2/vs/leadership-report"||url.pathname==="/ui-v2/vs/leadership-report/discord";
   const rosterUpdate=url.pathname==="/ui-v2/discord/roster-update"||url.pathname==="/ui-v2/discord/roster-update/post";
-  const supported=(request.method==="GET"&&(url.pathname==="/ui-v2"||url.pathname==="/ui-v2/leadership"||url.pathname==="/ui-v2/intelligence"||reportCard||discordNotifications||discordSetup||discordRankSync||discordShieldReminders||discordOrphanAccess||vsLeadershipReport||rosterUpdate||url.pathname==="/ui-v2/players"||url.pathname==="/ui-v2/ranks"||url.pathname==="/ui-v2/audit"||selfProfile||away||events||train||vs||ds||shieldDrops||backup||importCentre||playerManagement||security||settings))||(request.method==="POST"&&(url.pathname==="/ui-v2/ranks"||discordNotifications||discordSetup||discordRankSync||discordShieldReminders||discordOrphanAccess||vsLeadershipReport||rosterUpdate||selfProfile||away||events||train||vs||ds||shieldDrops||backup||importCentre||playerManagement||security||settings));
+  const supported=(request.method==="GET"&&(url.pathname==="/ui-v2"||url.pathname==="/ui-v2/leadership"||url.pathname==="/ui-v2/intelligence"||reportCard||discordNotifications||discordSetup||discordRankSync||discordShieldReminders||discordOrphanAccess||vsLeadershipReport||rosterUpdate||url.pathname==="/ui-v2/players"||url.pathname==="/ui-v2/ranks"||url.pathname==="/ui-v2/audit"||selfProfile||away||events||train||vs||ds||shieldDrops||backup||importCentre||playerManagement||security||settings||integrationsKeys))||(request.method==="POST"&&(url.pathname==="/ui-v2/ranks"||discordNotifications||discordSetup||discordRankSync||discordShieldReminders||discordOrphanAccess||vsLeadershipReport||rosterUpdate||selfProfile||away||events||train||vs||ds||shieldDrops||backup||importCentre||playerManagement||security||settings||integrationsKeys));
   if(!supported)return null;
 
   const context=await loadUiV2Context(request,env);
@@ -61,6 +63,8 @@ export async function handleUiV2(request:Request,env:UiV2Env):Promise<Response|n
 
   const securityResponse=await handleUiV2Security(request,env,context);
   if(securityResponse)return securityResponse;
+  const integrationsKeysResponse=await handleUiV2IntegrationsKeys(request,env,context);
+  if(integrationsKeysResponse)return integrationsKeysResponse;
   const selfProfileResponse=await handleUiV2SelfProfile(request,env,context);
   if(selfProfileResponse)return selfProfileResponse;
   const reportCardResponse=await handleUiV2ReportCard(request,env,context);
