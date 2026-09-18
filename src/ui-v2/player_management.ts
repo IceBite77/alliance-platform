@@ -8,6 +8,7 @@ import {esc,renderUiV2Shell,uiV2Html} from "./shell";
 import {syncDiscordPlayerRank} from "./discord_rank_sync";
 import {postDiscordRankAnnouncement} from "./discord_rank_announcement";
 import {postDiscordBaseAnnouncement} from "./discord_base_announcement";
+import {removeManagedDiscordRoles} from "../discord_access_roles";
 
 type RankRow={rank_level:number;display_name:string;colour:string};
 type PendingAccount={id:number;display_name:string;provider_username:string|null;claimed_player_name:string|null};
@@ -122,6 +123,7 @@ async function rejectAccount(request:Request,env:UiV2Env,context:UiV2Context,acc
   if(!context.user.canApproveAccounts||!playerSameOrigin(request,env))return new Response("Forbidden",{status:403});
   const account=await env.DB.prepare("SELECT id,approval_status FROM accounts WHERE id=? AND approval_status='pending' AND is_active=1 AND is_owner=0").bind(accountId).first<{id:number;approval_status:string}>();
   if(!account)return new Response("Account not found",{status:404});
+  const identity=await env.DB.prepare("SELECT provider_subject FROM account_identities WHERE account_id=? AND provider='discord'").bind(accountId).first<{provider_subject:string}>();if(identity)try{await removeManagedDiscordRoles(env,identity.provider_subject,{accountId:context.user.accountId,displayName:context.user.displayName},"account_rejected")}catch(error){console.error("Discord managed role removal failed",identity.provider_subject,error)}
   await env.DB.batch([
     env.DB.prepare("UPDATE sessions SET revoked_at=CURRENT_TIMESTAMP WHERE account_id=? AND revoked_at IS NULL").bind(accountId),
     env.DB.prepare("UPDATE accounts SET approval_status='rejected',rejected_at=CURRENT_TIMESTAMP,rejection_reason='Rejected by Leadership',is_active=0,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(accountId),
@@ -134,6 +136,7 @@ async function blockAccount(request:Request,env:UiV2Env,context:UiV2Context,acco
   if(!context.user.canApproveAccounts||!playerSameOrigin(request,env))return new Response("Forbidden",{status:403});
   const account=await env.DB.prepare("SELECT id,display_name,approval_status FROM accounts WHERE id=? AND approval_status='pending' AND is_active=1 AND is_owner=0").bind(accountId).first<{id:number;display_name:string;approval_status:string}>();
   if(!account)return new Response("Account not found",{status:404});
+  const identity=await env.DB.prepare("SELECT provider_subject FROM account_identities WHERE account_id=? AND provider='discord'").bind(accountId).first<{provider_subject:string}>();if(identity)try{await removeManagedDiscordRoles(env,identity.provider_subject,{accountId:context.user.accountId,displayName:context.user.displayName},"account_blocked")}catch(error){console.error("Discord managed role removal failed",identity.provider_subject,error)}
   await env.DB.batch([
     env.DB.prepare("UPDATE sessions SET revoked_at=CURRENT_TIMESTAMP WHERE account_id=? AND revoked_at IS NULL").bind(accountId),
     env.DB.prepare("UPDATE accounts SET approval_status='disabled',is_active=0,rejection_reason='Blocked by Leadership',updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(accountId),
@@ -315,6 +318,7 @@ async function changeLoginAccess(request:Request,env:UiV2Env,context:UiV2Context
   const actor=await playerActor(request,env);
   if(!actor)return redirect(request,"/login");
   const result=await setPlayerLoginAccess(request,env,actor,playerId,enable);
+  if(!result&&enable)try{await syncDiscordPlayerRank(env,playerId,context)}catch(error){console.error("Discord role restore after login enable failed",playerId,error)}
   return result??redirect(request,`/ui-v2/players/${playerId}?saved=login-${enable?"enabled":"disabled"}#discord-account`);
 }
 

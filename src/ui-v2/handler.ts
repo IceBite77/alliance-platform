@@ -26,6 +26,7 @@ import {handleUiV2DiscordDesertStorm} from "./discord_desert_storm";
 import {handleUiV2DiscordSetup} from "./discord_setup";
 import {handleUiV2DiscordRankSync} from "./discord_rank_sync";
 import {handleUiV2DiscordShieldReminders} from "./discord_shield_reminders";
+import {handleUiV2DiscordOrphanAccess} from "./discord_orphan_access";
 
 export async function handleUiV2(request:Request,env:UiV2Env):Promise<Response|null>{
   const url=new URL(request.url);
@@ -47,9 +48,10 @@ export async function handleUiV2(request:Request,env:UiV2Env):Promise<Response|n
   const discordSetup=url.pathname==="/ui-v2/settings/discord-setup"||url.pathname==="/ui-v2/settings/discord-setup/create"||url.pathname==="/ui-v2/settings/discord-setup/identity";
   const discordRankSync=url.pathname==="/ui-v2/settings/discord-rank-sync";
   const discordShieldReminders=url.pathname==="/ui-v2/settings/discord-shield-reminders";
+  const discordOrphanAccess=url.pathname==="/ui-v2/settings/discord-orphan-access";
   const vsLeadershipReport=url.pathname==="/ui-v2/vs/leadership-report"||url.pathname==="/ui-v2/vs/leadership-report/discord";
   const rosterUpdate=url.pathname==="/ui-v2/discord/roster-update"||url.pathname==="/ui-v2/discord/roster-update/post";
-  const supported=(request.method==="GET"&&(url.pathname==="/ui-v2"||url.pathname==="/ui-v2/leadership"||url.pathname==="/ui-v2/intelligence"||reportCard||discordNotifications||discordSetup||discordRankSync||discordShieldReminders||vsLeadershipReport||rosterUpdate||url.pathname==="/ui-v2/players"||url.pathname==="/ui-v2/ranks"||url.pathname==="/ui-v2/audit"||selfProfile||away||events||train||vs||ds||shieldDrops||backup||playerManagement||security||settings))||(request.method==="POST"&&(url.pathname==="/ui-v2/ranks"||discordNotifications||discordSetup||discordRankSync||discordShieldReminders||vsLeadershipReport||rosterUpdate||selfProfile||away||events||train||vs||ds||shieldDrops||backup||playerManagement||security||settings));
+  const supported=(request.method==="GET"&&(url.pathname==="/ui-v2"||url.pathname==="/ui-v2/leadership"||url.pathname==="/ui-v2/intelligence"||reportCard||discordNotifications||discordSetup||discordRankSync||discordShieldReminders||discordOrphanAccess||vsLeadershipReport||rosterUpdate||url.pathname==="/ui-v2/players"||url.pathname==="/ui-v2/ranks"||url.pathname==="/ui-v2/audit"||selfProfile||away||events||train||vs||ds||shieldDrops||backup||playerManagement||security||settings))||(request.method==="POST"&&(url.pathname==="/ui-v2/ranks"||discordNotifications||discordSetup||discordRankSync||discordShieldReminders||discordOrphanAccess||vsLeadershipReport||rosterUpdate||selfProfile||away||events||train||vs||ds||shieldDrops||backup||playerManagement||security||settings));
   if(!supported)return null;
 
   const context=await loadUiV2Context(request,env);
@@ -69,6 +71,8 @@ export async function handleUiV2(request:Request,env:UiV2Env):Promise<Response|n
   if(discordRankSyncResponse)return discordRankSyncResponse;
   const discordShieldResponse=await handleUiV2DiscordShieldReminders(request,env,context);
   if(discordShieldResponse)return discordShieldResponse;
+  const discordOrphanResponse=await handleUiV2DiscordOrphanAccess(request,env,context);
+  if(discordOrphanResponse)return discordOrphanResponse;
   const vsLeadershipReportResponse=await handleUiV2VsLeadershipReport(request,env,context);
   if(vsLeadershipReportResponse)return vsLeadershipReportResponse;
   const rosterUpdateResponse=await handleUiV2DiscordRosterUpdate(request,env,context);
