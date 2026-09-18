@@ -113,6 +113,7 @@ const NAV_ITEMS:UiV2NavItem[]=[
   {label:"Alliance Details",href:"/ui-v2/settings/details",section:"Settings",anyPermission:["settings.manage","settings.details"]},
   {label:"Branding",href:"/ui-v2/branding",section:"Settings",anyPermission:["settings.manage","settings.branding"]},
   {label:"Discord",href:"/ui-v2/settings/discord",section:"Settings",anyPermission:["settings.manage","settings.discord","integrations.manage"]},
+  {label:"Discord Notifications",href:"/ui-v2/settings/discord-notifications",section:"Settings",anyPermission:["settings.manage","settings.discord","integrations.manage"]},
   {label:"Ranks",href:"/ui-v2/ranks",section:"Settings",anyPermission:["settings.manage","settings.ranks"]},
   {label:"Player Settings",href:"/ui-v2/settings/players",section:"Settings",anyPermission:["settings.manage","settings.players"]}
 ];

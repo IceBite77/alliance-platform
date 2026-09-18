@@ -12,7 +12,7 @@ const backupTables=[
   "player_roster_snapshots","player_rank_history","player_private_notes","alliance_ranks","accounts","account_identities",
   "player_name_change_requests","player_name_history",
   "permissions","rank_permissions","permission_groups","group_permissions","permission_group_ranks","account_groups","account_permission_overrides",
-  "account_security_blocks","discord_guild_connection","audit_log"
+  "account_security_blocks","discord_guild_connection","audit_log","discord_notification_posts"
 ] as const;
 
 const reportSheets:Array<[string,string]>=[
