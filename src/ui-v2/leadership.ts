@@ -59,6 +59,7 @@ function comingCards(context:UiV2Context){
   if(context.user.canViewIntelligence)cards.push(`<a class="console-card console-card-link" href="/ui-v2/report-card">${icon("intel")}<span class="card-arrow">→</span><span class="card-kicker">Review</span><h3>Player Report Card</h3><p>Create a monthly player review and download it as a single image.</p></a>`);
   if(context.user.canManageTrain)cards.push(`<a class="console-card console-card-link" href="/ui-v2/train">${icon("train")}<span class="card-arrow">→</span><span class="card-kicker">Alliance</span><h3>Train</h3><p>Schedule the daily Train Driver and optional VIP.</p></a>`);
   if(context.user.isOwner)cards.push(`<a class="console-card console-card-link" href="/ui-v2/backup">${icon("backup")}<span class="card-arrow">→</span><span class="card-kicker">Data</span><h3>Backup &amp; Export</h3><p>Portable exports and recovery tools for the alliance owner.</p></a>`);
+  if(context.user.isOwner)cards.push(`<a class="console-card console-card-link" href="/ui-v2/import-centre">${icon("backup")}<span class="card-arrow">→</span><span class="card-kicker">Migration</span><h3>Import Centre</h3><p>Preview, import and safely roll back historic Google Sheets data.</p></a>`);
   return cards.join("");
 }
 

@@ -27,6 +27,7 @@ import {handleUiV2DiscordSetup} from "./discord_setup";
 import {handleUiV2DiscordRankSync} from "./discord_rank_sync";
 import {handleUiV2DiscordShieldReminders} from "./discord_shield_reminders";
 import {handleUiV2DiscordOrphanAccess} from "./discord_orphan_access";
+import {handleUiV2ImportCentre} from "./import_center";
 
 export async function handleUiV2(request:Request,env:UiV2Env):Promise<Response|null>{
   const url=new URL(request.url);
@@ -40,6 +41,7 @@ export async function handleUiV2(request:Request,env:UiV2Env):Promise<Response|n
   const ds=url.pathname.startsWith("/ui-v2/desert-storm");
   const shieldDrops=url.pathname==="/ui-v2/shield-drops"||url.pathname==="/ui-v2/shield-drops/delete";
   const backup=url.pathname==="/ui-v2/backup"||/^\/ui-v2\/backup\/(?:complete|excel|roster)$/.test(url.pathname);
+  const importCentre=url.pathname.startsWith("/ui-v2/import-centre");
   const security=url.pathname==="/ui-v2/security"||url.pathname==="/ui-v2/security/groups"||url.pathname==="/ui-v2/security/owner-transfer"||/^\/ui-v2\/security\/(?:groups\/\d+(?:\/(?:delete|permissions|ranks|members(?:\/\d+\/remove)?))?|accounts\/\d+\/(?:administrator-add|administrator-remove)|blocks\/\d+\/unblock)$/.test(url.pathname);
   const settings=url.pathname==="/ui-v2/settings"||/^\/ui-v2\/settings\/(?:details|players|discord(?:\/(?:verify|disconnect))?)$/.test(url.pathname);
   const selfProfile=url.pathname==="/ui-v2/my-profile"||url.pathname==="/ui-v2/my-profile/performance"||url.pathname==="/ui-v2/my-profile/name"||url.pathname==="/ui-v2/player-changes"||/^\/ui-v2\/player-changes\/\d+\/(?:approve|reject)$/.test(url.pathname);
@@ -51,7 +53,7 @@ export async function handleUiV2(request:Request,env:UiV2Env):Promise<Response|n
   const discordOrphanAccess=url.pathname==="/ui-v2/settings/discord-orphan-access";
   const vsLeadershipReport=url.pathname==="/ui-v2/vs/leadership-report"||url.pathname==="/ui-v2/vs/leadership-report/discord";
   const rosterUpdate=url.pathname==="/ui-v2/discord/roster-update"||url.pathname==="/ui-v2/discord/roster-update/post";
-  const supported=(request.method==="GET"&&(url.pathname==="/ui-v2"||url.pathname==="/ui-v2/leadership"||url.pathname==="/ui-v2/intelligence"||reportCard||discordNotifications||discordSetup||discordRankSync||discordShieldReminders||discordOrphanAccess||vsLeadershipReport||rosterUpdate||url.pathname==="/ui-v2/players"||url.pathname==="/ui-v2/ranks"||url.pathname==="/ui-v2/audit"||selfProfile||away||events||train||vs||ds||shieldDrops||backup||playerManagement||security||settings))||(request.method==="POST"&&(url.pathname==="/ui-v2/ranks"||discordNotifications||discordSetup||discordRankSync||discordShieldReminders||discordOrphanAccess||vsLeadershipReport||rosterUpdate||selfProfile||away||events||train||vs||ds||shieldDrops||backup||playerManagement||security||settings));
+  const supported=(request.method==="GET"&&(url.pathname==="/ui-v2"||url.pathname==="/ui-v2/leadership"||url.pathname==="/ui-v2/intelligence"||reportCard||discordNotifications||discordSetup||discordRankSync||discordShieldReminders||discordOrphanAccess||vsLeadershipReport||rosterUpdate||url.pathname==="/ui-v2/players"||url.pathname==="/ui-v2/ranks"||url.pathname==="/ui-v2/audit"||selfProfile||away||events||train||vs||ds||shieldDrops||backup||importCentre||playerManagement||security||settings))||(request.method==="POST"&&(url.pathname==="/ui-v2/ranks"||discordNotifications||discordSetup||discordRankSync||discordShieldReminders||discordOrphanAccess||vsLeadershipReport||rosterUpdate||selfProfile||away||events||train||vs||ds||shieldDrops||backup||importCentre||playerManagement||security||settings));
   if(!supported)return null;
 
   const context=await loadUiV2Context(request,env);
@@ -93,6 +95,8 @@ export async function handleUiV2(request:Request,env:UiV2Env):Promise<Response|n
   if(shieldDropsResponse)return shieldDropsResponse;
   const backupResponse=await handleUiV2Backup(request,env,context);
   if(backupResponse)return backupResponse;
+  const importResponse=await handleUiV2ImportCentre(request,env,context);
+  if(importResponse)return importResponse;
   if(request.method==="GET"&&url.pathname==="/ui-v2/audit")return renderUiV2Audit(env,context);
   const settingsResponse=await handleUiV2Settings(request,env,context);
   if(settingsResponse)return settingsResponse;

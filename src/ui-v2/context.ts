@@ -107,6 +107,7 @@ const NAV_ITEMS:UiV2NavItem[]=[
   {label:"Intelligence Centre",href:"/ui-v2/intelligence",section:"Operations",anyPermission:["intelligence.view"]},
   {label:"Player Report Card",href:"/ui-v2/report-card",section:"Operations",anyPermission:["intelligence.view"]},
   {label:"Backup & Export",href:"/ui-v2/backup",section:"Operations",ownerOnly:true},
+  {label:"Import Centre",href:"/ui-v2/import-centre",section:"Operations",ownerOnly:true},
   {label:"Access & Permissions",href:"/ui-v2/security",section:"Security",administratorOnly:true},
   {label:"Audit Log",href:"/ui-v2/audit",section:"Security",anyPermission:["audit.view"]},
   {label:"Settings Home",href:"/ui-v2/settings",section:"Settings",anyPermission:["settings.manage","settings.details","settings.branding","settings.discord","integrations.manage","settings.ranks","settings.players"]},
