@@ -21,8 +21,8 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
-      - run: npm run check
+      - run: npm install
+      - run: npm run typecheck
       - name: Apply D1 migrations
         run: npx wrangler d1 migrations apply DB --remote
         env:
