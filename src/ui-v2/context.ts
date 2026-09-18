@@ -5,10 +5,15 @@ export interface UiV2Env {
   DB:D1Database;
   ASSETS:R2Bucket;
   APP_URL:string;
+  AUTH_SECRET?:string;
+  SETUP_KEY?:string;
   DISCORD_CLIENT_ID?:string;
+  DISCORD_CLIENT_SECRET?:string;
   DISCORD_BOT_TOKEN?:string;
   OPENAI_API_KEY?:string;
   OPENAI_VISION_MODEL?:string;
+  LICENSING_URL?:string;
+  PLATFORM_VERSION?:string;
 }
 
 export type UiV2Alliance={

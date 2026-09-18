@@ -27,7 +27,8 @@ async function home(env:UiV2Env,context:UiV2Context){
     context.user.canManageBranding?'<a class="settings-card" href="/ui-v2/branding"><span>Appearance</span><h2>Branding</h2><p>Theme colours, shared wording, logos and platform identity.</p><b>→</b></a>':"",
     context.user.canManageDiscord?`<a class="settings-card" href="/ui-v2/settings/discord"><span>Connection</span><h2>Discord</h2><p>${guild?`Connected to ${esc(guild.guild_name)}.`:"Discord is not connected."}</p><b>→</b></a>`:"",
     context.user.canManageRanks?'<a class="settings-card" href="/ui-v2/ranks"><span>Players</span><h2>Ranks</h2><p>Manage R1–R5 names, colours and future rank artwork.</p><b>→</b></a>':"",
-    context.user.canManagePlayerSettings?`<a class="settings-card" href="/ui-v2/settings/players"><span>Player Profiles</span><h2>Player Settings</h2><p>Base, Overlord and daily VS contribution limits.</p><b>→</b></a>`:""
+    context.user.canManagePlayerSettings?`<a class="settings-card" href="/ui-v2/settings/players"><span>Player Profiles</span><h2>Player Settings</h2><p>Base, Overlord and daily VS contribution limits.</p><b>→</b></a>`:"",
+    context.user.isOwner?'<a class="settings-card" href="/ui-v2/settings/integrations"><span>Owner only</span><h2>Integrations & Keys</h2><p>ICE Licensing, OpenAI, Discord and emergency setup credentials.</p><b>→</b></a>':""
   ].join("");
   return uiV2Html(renderUiV2Shell(context,{eyebrow:"Configuration",title:"Alliance Settings",description:"Everything that defines how this alliance looks, connects and labels itself lives here.",body:`${css}<div class="settings-grid">${cards}</div>`,activePath:"/ui-v2/settings",back:{href:"/ui-v2/leadership",label:"Leadership Console"}}));
 }
