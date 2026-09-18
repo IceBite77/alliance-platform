@@ -1,6 +1,0 @@
-const tabs=[
-  ["files","Import Centre","/ui-v2/import-centre"],
-  ["screenshots","Screenshot Import","/ui-v2/import-centre/screenshots"]
-] as const;
-
-export function importTabs(active:"files"|"screenshots"){return `<style>.import-tabs{display:flex;align-items:flex-end;gap:5px;margin-bottom:18px;border-bottom:1px solid var(--ui-line-strong);overflow-x:auto;overflow-y:hidden}.import-tab{position:relative;flex:0 0 auto;min-height:48px;padding:12px 17px;border:1px solid transparent;border-bottom:0;border-radius:11px 11px 0 0;color:var(--ui-navigation);font-size:.78rem;font-weight:900;text-decoration:none}.import-tab:hover{color:var(--ui-hover);background:color-mix(in srgb,var(--ui-hover) 7%,transparent)}.import-tab.active{border-color:var(--ui-line-strong);background:var(--ui-surface-2);color:var(--ui-accent)}.import-tab.active::after{content:"";position:absolute;left:-1px;right:-1px;bottom:-2px;height:3px;border-radius:3px 3px 0 0;background:var(--ui-hover)}@media(max-width:600px){.import-tab{min-height:44px;padding:11px 13px;font-size:.72rem}}</style><nav class="import-tabs" aria-label="Import sections">${tabs.map(([id,label,href])=>`<a class="import-tab${id===active?" active":""}" href="${href}"${id===active?' aria-current="page"':""}>${label}</a>`).join("")}</nav>`}

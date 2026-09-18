@@ -1,5 +1,3 @@
-import {evaluatePermissionPolicy} from "./permission_policy";
-
 export interface PlayerAccessEnv { DB:D1Database; APP_URL:string }
 
 export type PlayerActor={id:number;display_name:string;is_owner:number;player_id:number|null;provider_username:string|null};
@@ -55,23 +53,26 @@ export const playerIsAdministrator=async(env:PlayerAccessEnv,actor:PermissionAct
 };
 
 export const playerPermitted=async(env:PlayerAccessEnv,actor:PermissionActor,key:string)=>{
-  const isOwner=Boolean(actor.is_owner);
-  const isAdministrator=await playerIsAdministrator(env,actor);
-  if(isOwner||isAdministrator)return evaluatePermissionPolicy({permissionKey:key,isOwner,isAdministrator});
+  if(actor.is_owner)return true;
+
+  // Administrator is the top-level platform role. Administrators see and manage
+  // the same Leadership system as the Owner. Ownership itself is the one
+  // distinction and is only needed for ownership transfer/protection actions.
+  if(await playerIsAdministrator(env,actor))return key!=="system.transfer_owner";
 
   const row=await env.DB.prepare(`
-    SELECT
-      EXISTS(
+    SELECT CASE
+      WHEN EXISTS(
         SELECT 1 FROM account_permission_overrides o
         JOIN permissions p ON p.id=o.permission_id
         WHERE o.account_id=? AND p.permission_key=? AND o.effect='deny'
-      ) AS explicitly_denied,
-      EXISTS(
+      ) THEN 0
+      WHEN EXISTS(
         SELECT 1 FROM account_permission_overrides o
         JOIN permissions p ON p.id=o.permission_id
         WHERE o.account_id=? AND p.permission_key=? AND o.effect='allow'
-      ) AS explicitly_allowed,
-      EXISTS(
+      ) THEN 1
+      WHEN EXISTS(
         SELECT 1 FROM group_permissions gp
         JOIN permissions p ON p.id=gp.permission_id
         WHERE p.permission_key=? AND gp.group_id IN (
@@ -83,16 +84,11 @@ export const playerPermitted=async(env:PlayerAccessEnv,actor:PermissionActor,key
           JOIN players player ON player.id=a.player_id AND player.is_active=1
           WHERE gr.rank=player.rank
         )
-      ) AS group_allowed
-  `).bind(actor.id,key,actor.id,key,key,actor.id,actor.id).first<{explicitly_denied:number;explicitly_allowed:number;group_allowed:number}>();
-  return evaluatePermissionPolicy({
-    permissionKey:key,
-    isOwner,
-    isAdministrator,
-    explicitlyDenied:Boolean(row?.explicitly_denied),
-    explicitlyAllowed:Boolean(row?.explicitly_allowed),
-    groupAllowed:Boolean(row?.group_allowed)
-  });
+      ) THEN 1
+      ELSE 0
+    END AS allowed
+  `).bind(actor.id,key,actor.id,key,key,actor.id,actor.id).first<{allowed:number}>();
+  return Number(row?.allowed??0)===1;
 };
 
 export const playerSameOrigin=(request:Request,env:PlayerAccessEnv)=>{

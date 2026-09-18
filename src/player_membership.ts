@@ -1,15 +1,13 @@
 import {playerPermitted,playerSameOrigin,type PlayerActor} from "./player_access";
 import {auditPlayer,loadStoredPlayer} from "./player_store";
-import {removeManagedDiscordRoles} from "./discord_access_roles";
 
-export interface PlayerMembershipEnv { DB:D1Database; APP_URL:string; DISCORD_BOT_TOKEN?:string }
-type LinkedAccount={id:number;display_name:string;is_active:number;is_owner:number;provider_username:string|null;provider_subject:string|null};
+export interface PlayerMembershipEnv { DB:D1Database; APP_URL:string }
+type LinkedAccount={id:number;display_name:string;is_active:number;is_owner:number;provider_username:string|null};
 
-const linkedAccount=async(env:PlayerMembershipEnv,playerId:number)=>env.DB.prepare(`SELECT a.id,a.display_name,a.is_active,a.is_owner,i.provider_username,i.provider_subject FROM accounts a LEFT JOIN account_identities i ON i.account_id=a.id AND i.provider='discord' WHERE a.player_id=? LIMIT 1`).bind(playerId).first<LinkedAccount>();
+const linkedAccount=async(env:PlayerMembershipEnv,playerId:number)=>env.DB.prepare(`SELECT a.id,a.display_name,a.is_active,a.is_owner,i.provider_username FROM accounts a LEFT JOIN account_identities i ON i.account_id=a.id AND i.provider='discord' WHERE a.player_id=? LIMIT 1`).bind(playerId).first<LinkedAccount>();
 
 const removeLogin=async(env:PlayerMembershipEnv,actor:PlayerActor,playerId:number,linked:LinkedAccount,reason:string)=>{
   const discord=linked.provider_username||linked.display_name;
-  if(linked.provider_subject)try{await removeManagedDiscordRoles(env,linked.provider_subject,{accountId:actor.id,displayName:actor.display_name},reason)}catch(error){console.error("Discord managed role removal failed",linked.provider_subject,error)}
   const groups=(await env.DB.prepare("SELECT group_id FROM account_groups WHERE account_id=?").bind(linked.id).all<{group_id:number}>()).results?.map(x=>x.group_id)??[];
   const revoked=await env.DB.prepare("UPDATE sessions SET revoked_at=CURRENT_TIMESTAMP WHERE account_id=? AND revoked_at IS NULL").bind(linked.id).run();
   await env.DB.prepare("DELETE FROM account_groups WHERE account_id=?").bind(linked.id).run();
@@ -30,7 +28,6 @@ export const setPlayerLoginAccess=async(request:Request,env:PlayerMembershipEnv,
   let sessionsRevoked=0;
   await env.DB.prepare("UPDATE accounts SET is_active=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND is_owner=0").bind(enable?1:0,linked.id).run();
   if(!enable){
-    if(linked.provider_subject)try{await removeManagedDiscordRoles(env,linked.provider_subject,{accountId:actor.id,displayName:actor.display_name},"login_disabled")}catch(error){console.error("Discord managed role removal failed",linked.provider_subject,error)}
     const revoked=await env.DB.prepare("UPDATE sessions SET revoked_at=CURRENT_TIMESTAMP WHERE account_id=? AND revoked_at IS NULL").bind(linked.id).run();
     sessionsRevoked=Number(revoked.meta?.changes??0);
   }
