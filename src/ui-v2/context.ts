@@ -45,6 +45,7 @@ export type UiV2User={
   canManageDs:boolean;
   canViewDs:boolean;
   canManageTrain:boolean;
+  canManageShieldDrops:boolean;
   canViewIntelligence:boolean;
   canViewFrontRankings:boolean;
   canViewFrontShieldDrops:boolean;
@@ -85,7 +86,7 @@ type PlayerRow={rank:number|null;rank_name:string|null;rank_colour:string|null};
 const LEADERSHIP_PERMISSIONS=[
   "players.edit","players.manage_membership","players.approve_changes","players.manage_protected_rank",
   "players.private_notes","accounts.approve","accounts.manage",
-  "away.manage_all","vs.manage","ds.manage","train.manage","intelligence.view","audit.view","settings.manage","settings.details","settings.branding",
+  "away.manage_all","vs.manage","ds.manage","train.manage","shield_drops.manage","intelligence.view","audit.view","settings.manage","settings.details","settings.branding",
   "settings.discord","integrations.manage","settings.ranks","settings.players"
 ];
 
@@ -98,6 +99,7 @@ const NAV_ITEMS:UiV2NavItem[]=[
   {label:"Desert Storm",href:"/ui-v2/desert-storm",section:"Operations",anyPermission:["ds.manage"]},
   {label:"Weekly Events",href:"/ui-v2/events",section:"Operations",anyPermission:["away.manage_all","vs.manage","ds.manage","settings.manage"]},
   {label:"Alliance Train",href:"/ui-v2/train",section:"Operations",anyPermission:["train.manage"]},
+  {label:"Shield Drop Watch",href:"/ui-v2/shield-drops",section:"Operations",anyPermission:["shield_drops.manage"]},
   {label:"Backup & Export",href:"/ui-v2/backup",section:"Operations",ownerOnly:true},
   {label:"Access & Permissions",href:"/ui-v2/security",section:"Security",administratorOnly:true},
   {label:"Audit Log",href:"/ui-v2/audit",section:"Security",anyPermission:["audit.view"]},
@@ -134,7 +136,7 @@ export async function loadUiV2Context(request:Request,env:UiV2Env):Promise<UiV2C
   const playerPermissions=["players.edit","players.manage_membership","players.approve_changes","players.manage_protected_rank","players.private_notes","accounts.approve","accounts.manage"];
   const securityPermissions=["accounts.manage","permissions.manage"];
   const settingsPermissions=["settings.manage","settings.details","settings.branding","settings.discord","integrations.manage","settings.ranks","settings.players"];
-  const [alliance,settingRows,player,isAdministrator,canAccessLeadership,canManageBranding,canManageRanks,canManageDetails,canManageDiscord,canManagePlayerSettings,canManagePlayers,canManageAway,canManageVs,canViewVs,canManageDs,canViewDs,canManageTrain,canViewIntelligence,canViewFrontRankings,canViewFrontShieldDrops,canViewFrontAwayDetails,canViewFrontTrain,canEditPlayers,canManageMembership,canManageProtectedRank,canManageAccounts,canManagePrivateNotes,canApproveAccounts,canManageSecurity,canManagePermissions,canViewAudit,canManageSettings,navigation]=await Promise.all([
+  const [alliance,settingRows,player,isAdministrator,canAccessLeadership,canManageBranding,canManageRanks,canManageDetails,canManageDiscord,canManagePlayerSettings,canManagePlayers,canManageAway,canManageVs,canViewVs,canManageDs,canViewDs,canManageTrain,canManageShieldDrops,canViewIntelligence,canViewFrontRankings,canViewFrontShieldDrops,canViewFrontAwayDetails,canViewFrontTrain,canEditPlayers,canManageMembership,canManageProtectedRank,canManageAccounts,canManagePrivateNotes,canApproveAccounts,canManageSecurity,canManagePermissions,canViewAudit,canManageSettings,navigation]=await Promise.all([
     env.DB.prepare("SELECT name,tag,server_number FROM alliance WHERE id=1").first<AllianceRow>(),
     env.DB.prepare("SELECT key,value FROM settings WHERE key LIKE 'theme_%' OR key IN ('platform_name','brand_main_logo','brand_favicon','footer_text','show_rank_names')").all<SettingRow>(),
     actor.player_id
@@ -154,6 +156,7 @@ export async function loadUiV2Context(request:Request,env:UiV2Env):Promise<UiV2C
     playerPermitted(env,actor,"ds.manage"),
     playerPermitted(env,actor,"ds.view"),
     playerPermitted(env,actor,"train.manage"),
+    playerPermitted(env,actor,"shield_drops.manage"),
     playerPermitted(env,actor,"intelligence.view"),
     playerPermitted(env,actor,"front.rankings.view"),
     playerPermitted(env,actor,"front.shield_drops.view"),
@@ -213,6 +216,7 @@ export async function loadUiV2Context(request:Request,env:UiV2Env):Promise<UiV2C
       canManageDs,
       canViewDs,
       canManageTrain,
+      canManageShieldDrops,
       canViewIntelligence,
       canViewFrontRankings,
       canViewFrontShieldDrops,
