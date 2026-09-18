@@ -58,22 +58,6 @@ first applies any pending D1 migrations to the remote database and then deploys 
 
 Cloudflare Builds is configured to use this command for the production branch, so future pushes to `main` will keep the Worker and D1 schema in step.
 
-## Optional screenshot imports
-
-AI-assisted screenshot imports require an OpenAI API key stored as a Cloudflare Worker secret:
-
-```bash
-npx wrangler secret put OPENAI_API_KEY
-```
-
-The vision model defaults to `gpt-4.1-mini`. A deployment can override it with the optional `OPENAI_VISION_MODEL` Worker variable. Screenshots are sent directly to the OpenAI Responses API with storage disabled and are not written to D1 or R2 by the platform.
-
-After the first owner has been created, operational credentials can be added or
-replaced from **Alliance Settings → Integrations & Keys**. Console-managed
-credentials are encrypted with AES-GCM using the installation `AUTH_SECRET` and
-are never displayed again or included in audit data. The ICE installation key is
-verified by ICE Licensing and is not retained locally.
-
 ## Initial API
 
 - `GET /` — service information
